@@ -4,15 +4,14 @@
 use crate::{
     async_proof_fetcher::AsyncProofFetcher, metrics::TIMER, state_view::DbStateView, DbReader,
 };
-use anyhow::Result;
 use aptos_crypto::{hash::CryptoHash, HashValue};
 use aptos_experimental_runtimes::thread_manager::THREAD_MANAGER;
 use aptos_scratchpad::{FrozenSparseMerkleTree, SparseMerkleTree, StateStoreStatus};
 use aptos_types::{
     proof::SparseMerkleProofExt,
     state_store::{
-        state_key::StateKey, state_storage_usage::StateStorageUsage, state_value::StateValue,
-        StateViewId, TStateView,
+        errors::AptosDbError, state_key::StateKey, state_storage_usage::StateStorageUsage,
+        state_value::StateValue, StateViewId, TStateView,
     },
     transaction::Version,
     write_set::WriteSet,
@@ -36,6 +35,7 @@ static IO_POOL: Lazy<rayon::ThreadPool> = Lazy::new(|| {
         .unwrap()
 });
 
+type Result<T, E = AptosDbError> = std::result::Result<T, E>;
 type StateCacheShard = DashMap<StateKey, (Option<Version>, Option<StateValue>)>;
 
 // Sharded by StateKey.get_shard_id(). The version in the value indicates there is an entry on that

@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{balance_ap, encode_mint_transaction, encode_transfer_transaction, seqnum_ap, MockVM};
-use anyhow::Result;
 use aptos_types::{
     account_address::AccountAddress,
     bytes::NumToBytes,
@@ -26,11 +25,14 @@ struct MockStateView;
 impl TStateView for MockStateView {
     type Key = StateKey;
 
-    fn get_state_value(&self, _state_key: &StateKey) -> Result<Option<StateValue>> {
+    fn get_state_value(
+        &self,
+        _state_key: &StateKey,
+    ) -> aptos_storage_interface::Result<Option<StateValue>> {
         Ok(None)
     }
 
-    fn get_usage(&self) -> Result<StateStorageUsage> {
+    fn get_usage(&self) -> aptos_storage_interface::Result<StateStorageUsage> {
         Ok(StateStorageUsage::new_untracked())
     }
 }

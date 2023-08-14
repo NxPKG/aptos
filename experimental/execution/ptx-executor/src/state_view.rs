@@ -4,6 +4,7 @@
 #![forbid(unsafe_code)]
 
 use crate::common::HashMap;
+use aptos_storage_interface::Result;
 use aptos_types::state_store::{
     state_key::StateKey, state_storage_usage::StateStorageUsage, state_value::StateValue,
     StateView, TStateView,
@@ -33,7 +34,7 @@ impl<'view> OverlayedStateView<'view> {
 impl<'view> TStateView for OverlayedStateView<'view> {
     type Key = StateKey;
 
-    fn get_state_value(&self, state_key: &Self::Key) -> anyhow::Result<Option<StateValue>> {
+    fn get_state_value(&self, state_key: &Self::Key) -> Result<Option<StateValue>> {
         // TODO(ptx): reject non-module reads once block_metadata is analyzed for R/W set
         // TODO(ptx): remove base_view reads once module reads are dealt with
         self.overlay
@@ -43,7 +44,7 @@ impl<'view> TStateView for OverlayedStateView<'view> {
             .unwrap_or_else(|| self.base_view.get_state_value(state_key))
     }
 
-    fn get_usage(&self) -> anyhow::Result<StateStorageUsage> {
+    fn get_usage(&self) -> Result<StateStorageUsage> {
         // TODO(aldenhu): maybe remove get_usage() from StateView
         unimplemented!()
     }

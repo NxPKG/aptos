@@ -12,18 +12,19 @@ use crate::{
     },
     NibbleExt, TreeReader, TreeWriter, ROOT_NIBBLE_HEIGHT,
 };
-use anyhow::{ensure, Result};
 use aptos_crypto::{
     hash::{CryptoHash, SPARSE_MERKLE_PLACEHOLDER_HASH},
     HashValue,
 };
 use aptos_logger::info;
+use aptos_storage_interface::db_ensure as ensure;
 use aptos_types::{
     nibble::{
         nibble_path::{NibbleIterator, NibblePath},
         Nibble,
     },
     proof::{SparseMerkleInternalNode, SparseMerkleLeafNode, SparseMerkleRangeProof},
+    state_store::errors::AptosDbError,
     transaction::Version,
 };
 use itertools::Itertools;
@@ -36,6 +37,8 @@ use std::{
         Arc,
     },
 };
+
+type Result<T, E = AptosDbError> = std::result::Result<T, E>;
 
 static IO_POOL: Lazy<rayon::ThreadPool> = Lazy::new(|| {
     rayon::ThreadPoolBuilder::new()
@@ -685,11 +688,13 @@ where
         left_siblings.reverse();
 
         // Verify the proof now that we have all the siblings
-        proof.verify(
-            self.expected_root_hash,
-            SparseMerkleLeafNode::new(previous_key, previous_leaf.value_hash()),
-            left_siblings,
-        )
+        proof
+            .verify(
+                self.expected_root_hash,
+                SparseMerkleLeafNode::new(previous_key, previous_leaf.value_hash()),
+                left_siblings,
+            )
+            .map_err(Into::into)
     }
 
     /// Computes the sibling on the left for the `n`-th child.

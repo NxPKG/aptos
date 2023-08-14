@@ -25,9 +25,10 @@ use crate::{
     },
     transaction_store::TransactionStore,
 };
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use aptos_experimental_runtimes::thread_manager::THREAD_MANAGER;
 use aptos_logger::info;
+use aptos_storage_interface::AptosDbError;
 use aptos_types::transaction::{AtomicVersion, Version};
 use rayon::prelude::*;
 use std::{
@@ -36,6 +37,7 @@ use std::{
 };
 
 pub const LEDGER_PRUNER_NAME: &str = "ledger_pruner";
+type Result<T, E = AptosDbError> = std::result::Result<T, E>;
 
 /// Responsible for pruning everything except for the state tree.
 pub(crate) struct LedgerPruner {

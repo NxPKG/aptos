@@ -10,12 +10,12 @@ use crate::{
     schema::db_metadata::{DbMetadataKey, DbMetadataSchema, DbMetadataValue},
     utils::truncation_helper::{get_state_kv_commit_progress, truncate_state_kv_db_shards},
 };
-use anyhow::Result;
 use aptos_config::config::{RocksdbConfig, RocksdbConfigs, StorageDirPaths};
 use aptos_experimental_runtimes::thread_manager::THREAD_MANAGER;
 use aptos_logger::prelude::info;
 use aptos_rocksdb_options::gen_rocksdb_options;
 use aptos_schemadb::{SchemaBatch, DB};
+use aptos_storage_interface::AptosDbError;
 use aptos_types::transaction::Version;
 use arr_macro::arr;
 use std::{
@@ -23,6 +23,7 @@ use std::{
     sync::Arc,
 };
 
+type Result<T, E = AptosDbError> = std::result::Result<T, E>;
 pub const STATE_KV_DB_FOLDER_NAME: &str = "state_kv_db";
 pub const STATE_KV_METADATA_DB_NAME: &str = "state_kv_metadata_db";
 

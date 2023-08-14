@@ -6,8 +6,8 @@ use aptos_logger::trace;
 use aptos_types::{
     block_executor::partitioner::TransactionWithDependencies,
     state_store::{
-        state_key::StateKey, state_storage_usage::StateStorageUsage, state_value::StateValue,
-        StateView, TStateView,
+        errors::AptosDbError, state_key::StateKey, state_storage_usage::StateStorageUsage,
+        state_value::StateValue, StateView, TStateView,
     },
     transaction::analyzed_transaction::AnalyzedTransaction,
 };
@@ -74,14 +74,14 @@ impl<'a, S: StateView + Sync + Send> CrossShardStateView<'a, S> {
 impl<'a, S: StateView + Sync + Send> TStateView for CrossShardStateView<'a, S> {
     type Key = StateKey;
 
-    fn get_state_value(&self, state_key: &StateKey) -> Result<Option<StateValue>> {
+    fn get_state_value(&self, state_key: &StateKey) -> Result<Option<StateValue>, AptosDbError> {
         if let Some(value) = self.cross_shard_data.get(state_key) {
             return Ok(value.get_value());
         }
         self.base_view.get_state_value(state_key)
     }
 
-    fn get_usage(&self) -> Result<StateStorageUsage> {
+    fn get_usage(&self) -> Result<StateStorageUsage, AptosDbError> {
         Ok(StateStorageUsage::new_untracked())
     }
 }

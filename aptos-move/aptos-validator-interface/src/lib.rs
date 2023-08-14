@@ -256,11 +256,15 @@ impl DebuggerStateView {
 impl TStateView for DebuggerStateView {
     type Key = StateKey;
 
-    fn get_state_value(&self, state_key: &StateKey) -> Result<Option<StateValue>> {
+    fn get_state_value(
+        &self,
+        state_key: &StateKey,
+    ) -> aptos_storage_interface::Result<Option<StateValue>> {
         self.get_state_value_internal(state_key, self.version)
+            .map_err(Into::into)
     }
 
-    fn get_usage(&self) -> Result<StateStorageUsage> {
+    fn get_usage(&self) -> aptos_storage_interface::Result<StateStorageUsage> {
         unimplemented!()
     }
 }

@@ -5,7 +5,6 @@
 //! This module provides mock dbreader for tests.
 
 use crate::{DbReader, DbWriter};
-use anyhow::{anyhow, Result};
 use aptos_types::{
     account_address::AccountAddress,
     account_config::AccountResource,
@@ -13,6 +12,7 @@ use aptos_types::{
     event::EventHandle,
     proof::SparseMerkleProofExt,
     state_store::{
+        errors::AptosDbError,
         state_key::{StateKey, StateKeyInner},
         state_value::StateValue,
     },
@@ -22,6 +22,7 @@ use move_core_types::move_resource::MoveResource;
 
 /// This is a mock of the DbReaderWriter in tests.
 pub struct MockDbReaderWriter;
+type Result<T, E = AptosDbError> = std::result::Result<T, E>;
 
 impl DbReader for MockDbReaderWriter {
     fn get_latest_state_checkpoint_version(&self) -> Result<Option<Version>> {
@@ -51,7 +52,10 @@ impl DbReader for MockDbReaderWriter {
                     .map(StateValue::from))
             },
             StateKeyInner::Raw(raw_key) => Ok(Some(StateValue::from(raw_key.to_owned()))),
-            _ => Err(anyhow!("Not supported state key type {:?}", state_key)),
+            _ => Err(AptosDbError::Other(format!(
+                "Not supported state key type {:?}",
+                state_key
+            ))),
         }
     }
 

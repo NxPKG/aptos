@@ -3,12 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::state_store::{
-    state_key::StateKey, state_storage_usage::StateStorageUsage, state_value::StateValue,
-    TStateView,
+    errors::AptosDbError, state_key::StateKey, state_storage_usage::StateStorageUsage,
+    state_value::StateValue, TStateView,
 };
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+type Result<T, E = AptosDbError> = std::result::Result<T, E>;
 
 // A State view backed by in-memory hashmap.
 #[derive(Clone, Debug, Deserialize, Serialize)]
