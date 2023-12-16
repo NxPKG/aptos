@@ -24,7 +24,9 @@ use std::{
 use tempfile::TempDir;
 
 mod data_collection;
+mod data_stateview;
 mod execution;
+mod online_execution;
 
 pub use data_collection::*;
 pub use execution::*;
@@ -38,6 +40,7 @@ use move_package::{
     },
     CompilerVersion,
 };
+pub use online_execution::*;
 
 const APTOS_PACKAGES_DIR_NAMES: [&str; 5] = [
     "aptos-framework",

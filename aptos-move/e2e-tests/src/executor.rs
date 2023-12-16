@@ -56,7 +56,7 @@ use aptos_types::{
 use aptos_vm::{
     block_executor::{AptosTransactionOutput, BlockAptosVM},
     data_cache::AsMoveResolver,
-    move_vm_ext::{MoveVmExt, SessionId},
+    move_vm_ext::{AptosMoveResolver, MoveVmExt, SessionId},
     verifier, AptosVM, VMExecutor, VMValidator,
 };
 use aptos_vm_genesis::{generate_genesis_change_set_for_testing_with_count, GenesisOptions};
@@ -986,6 +986,62 @@ impl FakeExecutor {
         args: Vec<Vec<u8>>,
     ) {
         self.exec_module(&Self::module(module_name), function_name, type_params, args)
+    }
+
+    pub fn try_exec_entry_with_resolver(
+        &mut self,
+        senders: Vec<AccountAddress>,
+        entry_fn: &EntryFunction,
+        resolver: &impl AptosMoveResolver,
+    ) -> Result<(WriteSet, Vec<ContractEvent>), VMStatus> {
+        // let resolver = self.data_store.as_move_resolver();
+
+        let timed_features = TimedFeaturesBuilder::enable_all()
+            .with_override_profile(TimedFeatureOverride::Testing)
+            .build();
+
+        let vm = MoveVmExt::new(
+            NativeGasParameters::zeros(),
+            MiscGasParameters::zeros(),
+            LATEST_GAS_FEATURE_VERSION,
+            self.chain_id,
+            self.features.clone(),
+            timed_features,
+            resolver,
+        )
+        .unwrap();
+        let mut session = vm.new_session(resolver, SessionId::void());
+
+        let function =
+            session.load_function(entry_fn.module(), entry_fn.function(), entry_fn.ty_args())?;
+        let struct_constructors = self.features.is_enabled(FeatureFlag::STRUCT_CONSTRUCTORS);
+        let args = verifier::transaction_arg_validation::validate_combine_signer_and_txn_args(
+            &mut session,
+            senders,
+            entry_fn.args().to_vec(),
+            &function,
+            struct_constructors,
+        )?;
+        session
+            .execute_entry_function(
+                entry_fn.module(),
+                entry_fn.function(),
+                entry_fn.ty_args().to_vec(),
+                args,
+                &mut UnmeteredGasMeter,
+            )
+            .map_err(|e| e.into_vm_status())?;
+
+        let change_set = session
+            .finish(&ChangeSetConfigs::unlimited_at_gas_feature_version(
+                LATEST_GAS_FEATURE_VERSION,
+            ))
+            .expect("Failed to generate txn effects");
+        let (write_set, events) = change_set
+            .try_into_storage_change_set()
+            .expect("Failed to convert to ChangeSet")
+            .into_inner();
+        Ok((write_set, events))
     }
 
     pub fn try_exec_entry_with_features(

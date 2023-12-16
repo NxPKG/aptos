@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use aptos_comparison_testing::{
-    prepare_aptos_packages, DataCollection, Execution, ExecutionMode, APTOS_COMMONS,
+    prepare_aptos_packages, DataCollection, Execution, ExecutionMode, OnlineExecutor, APTOS_COMMONS,
 };
 use aptos_rest_client::Client;
 use clap::{Parser, Subcommand};
@@ -36,8 +36,28 @@ pub enum Cmd {
         #[clap(long, default_value_t = false)]
         dump_write_set: bool,
         /// Directly execute the txns without dumping the data
-        #[clap(long, default_value_t = false)]
+        #[clap(long, default_value_t = false, hide = true)]
         execution_only: bool,
+        /// Whether to execute against V1, V2 alone or both compilers for comparison
+        /// Used when execution_only is true
+        #[clap(long, hide = true)]
+        execution_mode: Option<ExecutionMode>,
+    },
+    /// Online execution
+    Online {
+        /// Endpoint url to obtain the txn data,
+        /// e.g. `https://api.mainnet.aptoslabs.com/v1` for mainnet.
+        /// To avoid rate limiting, users need to apply for API key from `https://developers.aptoslabs.com/`
+        /// and set the env variable X_API_KEY using the obtained key
+        endpoint: String,
+        /// Path to the dumped data
+        output_path: Option<PathBuf>,
+        /// Do not dump failed txns
+        #[clap(long, default_value_t = false)]
+        skip_failed_txns: bool,
+        /// Do not dump publish txns
+        #[clap(long, default_value_t = false)]
+        skip_publish_txns: bool,
         /// Whether to execute against V1, V2 alone or both compilers for comparison
         /// Used when execution_only is true
         #[clap(long)]
@@ -108,6 +128,33 @@ async fn main() -> Result<()> {
             data_collector
                 .dump_data(args.begin_version, args.limit)
                 .await?;
+        },
+        Cmd::Online {
+            endpoint,
+            output_path,
+            skip_failed_txns,
+            skip_publish_txns,
+            execution_mode,
+        } => {
+            let batch_size = BATCH_SIZE;
+            let output = if let Some(path) = output_path {
+                path
+            } else {
+                PathBuf::from(".")
+            };
+            if !output.exists() {
+                std::fs::create_dir_all(output.as_path()).unwrap();
+            }
+            prepare_aptos_packages(output.join(APTOS_COMMONS)).await;
+            let online = OnlineExecutor::new_with_rest_client(
+                Client::new(Url::parse(&endpoint)?),
+                output.clone(),
+                batch_size,
+                skip_failed_txns,
+                skip_publish_txns,
+                execution_mode.unwrap_or_default(),
+            )?;
+            online.execute(args.begin_version, args.limit).await?;
         },
         Cmd::Execute {
             input_path,

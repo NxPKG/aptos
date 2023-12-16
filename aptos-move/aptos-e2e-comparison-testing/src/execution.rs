@@ -3,8 +3,8 @@
 
 use crate::{
     check_aptos_packages_availability, compile_aptos_packages, compile_package,
-    generate_compiled_blob, is_aptos_package, DataManager, IndexReader, PackageInfo, TxnIndex,
-    APTOS_COMMONS,
+    data_stateview::DataStateView, generate_compiled_blob, is_aptos_package, DataManager,
+    IndexReader, PackageInfo, TxnIndex, APTOS_COMMONS,
 };
 use anyhow::Result;
 use aptos_language_e2e_tests::{data_store::FakeDataStore, executor::FakeExecutor};
@@ -15,12 +15,13 @@ use aptos_types::{
     vm_status::VMStatus,
     write_set::WriteSet,
 };
+use aptos_validator_interface::AptosValidatorInterface;
 use aptos_vm::{data_cache::AsMoveResolver, transaction_metadata::TransactionMetadata};
 use clap::ValueEnum;
 use itertools::Itertools;
 use move_core_types::language_storage::ModuleId;
 use move_package::CompilerVersion;
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 fn load_packages_to_executor(
     executor: &mut FakeExecutor,
@@ -233,6 +234,7 @@ impl Execution {
                 &txn_idx,
                 compiled_package_cache,
                 compiled_package_cache_v2,
+                None,
             );
         }
         Ok(())
@@ -246,6 +248,7 @@ impl Execution {
         txn_idx: &TxnIndex,
         compiled_package_cache: &HashMap<PackageInfo, HashMap<ModuleId, Vec<u8>>>,
         compiled_package_cache_v2: &HashMap<PackageInfo, HashMap<ModuleId, Vec<u8>>>,
+        debugger: Option<Arc<dyn AptosValidatorInterface + Send>>,
     ) {
         let mut package_cache_main = compiled_package_cache;
         let package_cache_other = compiled_package_cache_v2;
@@ -253,19 +256,23 @@ impl Execution {
             package_cache_main = compiled_package_cache_v2;
         }
         let res_main_opt = self.execute_code(
+            cur_version,
             state,
             features,
             &txn_idx.package_info,
             &txn_idx.txn,
             package_cache_main,
+            debugger.clone(),
         );
         if self.execution_mode.is_compare() {
             let res_other_opt = self.execute_code(
+                cur_version,
                 state,
                 features,
                 &txn_idx.package_info,
                 &txn_idx.txn,
                 package_cache_other,
+                debugger.clone(),
             );
             self.print_mismatches(cur_version, &res_main_opt.unwrap(), &res_other_opt.unwrap());
         } else {
@@ -287,11 +294,13 @@ impl Execution {
 
     fn execute_code(
         &self,
+        version: Version,
         state: &FakeDataStore,
         features: &Features,
         package_info: &PackageInfo,
         txn: &Transaction,
         compiled_package_cache: &HashMap<PackageInfo, HashMap<ModuleId, Vec<u8>>>,
+        debugger_opt: Option<Arc<dyn AptosValidatorInterface + Send>>,
     ) -> Option<Result<(WriteSet, Vec<ContractEvent>), VMStatus>> {
         let executor = FakeExecutor::no_genesis();
         let mut executor = executor.set_not_parallel();
@@ -306,11 +315,21 @@ impl Execution {
                 }
                 let mut senders = vec![sender];
                 senders.extend(TransactionMetadata::new(signed_trans).secondary_signers);
-                return Some(executor.try_exec_entry_with_features(
-                    senders,
-                    entry_function,
-                    features,
-                ));
+                if let Some(debugger) = debugger_opt {
+                    let data_view =
+                        DataStateView::new(debugger, version, executor.data_store().clone());
+                    return Some(executor.try_exec_entry_with_resolver(
+                        senders,
+                        entry_function,
+                        &data_view.as_move_resolver(),
+                    ));
+                } else {
+                    return Some(executor.try_exec_entry_with_features(
+                        senders,
+                        entry_function,
+                        features,
+                    ));
+                }
             } else if let TransactionPayload::Multisig(multi_sig) = payload {
                 assert!(multi_sig.transaction_payload.is_some());
                 println!("Multisig transaction is not supported yet");
