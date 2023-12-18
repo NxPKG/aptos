@@ -599,6 +599,7 @@ impl DagBootstrapper {
             None => NoChainHealth::new(),
         };
         let pipeline_health = PipelineLatencyBasedBackpressure::new(
+            Duration::from_millis(self.config.voter_pipeline_latency_limit_ms),
             PipelineBackpressureConfig::new(self.config.pipeline_backpressure_config.clone()),
             ordered_notifier.clone(),
         );
@@ -618,7 +619,7 @@ impl DagBootstrapper {
             round_state,
             self.onchain_config.dag_ordering_causal_history_window as Round,
             self.config.node_payload_config.clone(),
-            health_backoff,
+            health_backoff.clone(),
             self.quorum_store_enabled,
         );
         let rb_handler = NodeBroadcastHandler::new(
@@ -629,6 +630,7 @@ impl DagBootstrapper {
             fetch_requester,
             self.config.node_payload_config.clone(),
             self.validator_txn_enabled,
+            health_backoff,
         );
         let fetch_handler = FetchRequestHandler::new(dag_store.clone(), self.epoch_state.clone());
 

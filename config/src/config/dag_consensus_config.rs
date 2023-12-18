@@ -143,6 +143,7 @@ pub struct DagConsensusConfig {
     pub fetcher_config: DagFetcherConfig,
     pub round_state_config: DagRoundStateConfig,
     pub chain_backoff_config: Vec<ChainHealthBackoffValues>,
+    pub voter_pipeline_latency_limit_ms: u64,
     pub pipeline_backpressure_config: Vec<PipelineBackpressureValues>,
     #[serde(default = "QuorumStoreConfig::default_for_dag")]
     pub quorum_store: QuorumStoreConfig,
