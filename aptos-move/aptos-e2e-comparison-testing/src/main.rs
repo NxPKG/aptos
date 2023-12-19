@@ -10,7 +10,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use url::Url;
 
-const BATCH_SIZE: u64 = 100;
+const BATCH_SIZE: u64 = 500;
 
 #[derive(Subcommand)]
 pub enum Cmd {
@@ -153,6 +153,7 @@ async fn main() -> Result<()> {
                 skip_failed_txns,
                 skip_publish_txns,
                 execution_mode.unwrap_or_default(),
+                endpoint,
             )?;
             online.execute(args.begin_version, args.limit).await?;
         },

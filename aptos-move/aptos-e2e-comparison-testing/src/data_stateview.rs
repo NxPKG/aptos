@@ -4,10 +4,10 @@
 
 use anyhow::Result;
 use aptos_language_e2e_tests::data_store::FakeDataStore;
-use aptos_state_view::TStateView;
 use aptos_types::{
     state_store::{
         state_key::StateKey, state_storage_usage::StateStorageUsage, state_value::StateValue,
+        TStateView,
     },
     transaction::Version,
 };

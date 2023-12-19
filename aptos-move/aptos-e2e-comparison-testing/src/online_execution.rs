@@ -17,6 +17,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
+use url::Url;
 
 pub struct OnlineExecutor {
     debugger: Arc<dyn AptosValidatorInterface + Send>,
@@ -24,6 +25,7 @@ pub struct OnlineExecutor {
     batch_size: u64,
     filter_condition: FilterCondition,
     execution_mode: ExecutionMode,
+    endpoint: String,
 }
 
 impl OnlineExecutor {
@@ -34,6 +36,7 @@ impl OnlineExecutor {
         skip_failed_txns: bool,
         skip_publish_txns: bool,
         execution_mode: ExecutionMode,
+        endpoint: String,
     ) -> Self {
         Self {
             debugger,
@@ -45,6 +48,7 @@ impl OnlineExecutor {
                 check_source_code: true,
             },
             execution_mode,
+            endpoint,
         }
     }
 
@@ -55,6 +59,7 @@ impl OnlineExecutor {
         skip_failed_txns: bool,
         skip_publish_txns: bool,
         execution_mode: ExecutionMode,
+        endpoint: String,
     ) -> Result<Self> {
         Ok(Self::new(
             Arc::new(RestDebuggerInterface::new(rest_client)),
@@ -63,6 +68,7 @@ impl OnlineExecutor {
             skip_failed_txns,
             skip_publish_txns,
             execution_mode,
+            endpoint,
         ))
     }
 
@@ -133,7 +139,7 @@ impl OnlineExecutor {
         }
 
         let mut cur_version = begin;
-
+        let mut module_registry_map = HashMap::new();
         while cur_version < begin + limit {
             let batch = if cur_version + self.batch_size <= begin + limit {
                 self.batch_size
@@ -142,14 +148,23 @@ impl OnlineExecutor {
             };
             let res_txns = self
                 .debugger
-                .get_and_filter_committed_transactions(cur_version, batch, self.filter_condition)
+                .get_and_filter_committed_transactions(
+                    cur_version,
+                    batch,
+                    self.filter_condition,
+                    &mut module_registry_map,
+                )
                 .await;
             // if error happens when collecting txns, log the version range
             if res_txns.is_err() {
-                index_writer
-                    .lock()
-                    .unwrap()
-                    .write_err(&format!("{}:{}", cur_version, batch));
+                index_writer.lock().unwrap().write_err(&format!(
+                    "{}:{}:{:?}",
+                    cur_version,
+                    batch,
+                    res_txns.unwrap_err()
+                ));
+                cur_version += batch;
+                continue;
             }
             let txns = res_txns.unwrap_or_default();
             if !txns.is_empty() {
@@ -160,8 +175,7 @@ impl OnlineExecutor {
                     let compilation_cache = compilation_cache.clone();
                     let current_dir = self.current_dir.clone();
                     let execution_mode = self.execution_mode;
-
-                    let debugger = self.debugger.clone();
+                    let endpoint = self.endpoint.clone();
 
                     let txn_execution_thread = tokio::task::spawn_blocking(move || {
                         let executor = crate::Execution::new(current_dir.clone(), execution_mode);
@@ -203,6 +217,8 @@ impl OnlineExecutor {
                                 .compiled_package_cache_v2
                                 .clone();
 
+                            let client = Client::new(Url::parse(&endpoint).unwrap());
+                            let debugger = Arc::new(RestDebuggerInterface::new(client));
                             executor.execute_and_compare(
                                 version,
                                 &state_store,

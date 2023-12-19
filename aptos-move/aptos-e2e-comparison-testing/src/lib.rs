@@ -570,24 +570,5 @@ fn dump_and_compile_from_package_metadata(
             }
         }
     }
-    // if let std::collections::hash_map::Entry::Vacant(e) = compilation_cache
-    //     .compiled_package_map
-    //     .entry(package_info.clone())
-    // {
-    //     let mut build_options = BuildOptions::default();
-    //     build_options
-    //         .named_addresses
-    //         .insert(package_info.package_name.clone(), package_info.address);
-    //     build_options.compiler_version = compiler_version;
-    //     let compiled_package = BuiltPackage::build(root_package_dir, build_options);
-    //     if let Ok(built_package) = compiled_package {
-    //         e.insert(built_package.package);
-    //     } else {
-    //         if !compilation_cache.failed_packages.contains(&package_info) {
-    //             compilation_cache.failed_packages.insert(package_info);
-    //         }
-    //         return Err(anyhow::Error::msg("compilation failed"));
-    //     }
-    // }
     Ok(())
 }

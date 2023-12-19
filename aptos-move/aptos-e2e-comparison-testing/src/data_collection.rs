@@ -12,7 +12,7 @@ use aptos_language_e2e_tests::data_store::FakeDataStore;
 use aptos_rest_client::Client;
 use aptos_types::{
     on_chain_config::{FeatureFlag, Features, OnChainConfig},
-    state_store::{state_key::StateKey, state_value::StateValue},
+    state_store::{state_key::StateKey, state_value::StateValue, TStateView},
     transaction::{
         signature_verified_transaction::SignatureVerifiedTransaction, Transaction,
         TransactionOutput, Version,
@@ -199,7 +199,7 @@ impl DataCollection {
         }
 
         let mut cur_version = begin;
-
+        let mut module_registry_map = HashMap::new();
         while cur_version < begin + limit {
             let batch = if cur_version + self.batch_size <= begin + limit {
                 self.batch_size
@@ -208,7 +208,12 @@ impl DataCollection {
             };
             let res_txns = self
                 .debugger
-                .get_and_filter_committed_transactions(cur_version, batch, self.filter_condition)
+                .get_and_filter_committed_transactions(
+                    cur_version,
+                    batch,
+                    self.filter_condition,
+                    &mut module_registry_map,
+                )
                 .await;
             // if error happens when collecting txns, log the version range
             if res_txns.is_err() {

@@ -22,6 +22,7 @@ use aptos_types::{
 };
 use lru::LruCache;
 use move_binary_format::file_format::CompiledModule;
+use move_core_types::language_storage::ModuleId;
 use std::{
     collections::HashMap,
     ops::DerefMut,
@@ -63,6 +64,14 @@ pub trait AptosValidatorInterface: Sync {
         start: Version,
         limit: u64,
         filter_condition: FilterCondition,
+        package_cache: &mut HashMap<
+            ModuleId,
+            (
+                AccountAddress,
+                String,
+                HashMap<(AccountAddress, String), PackageMetadata>,
+            ),
+        >,
     ) -> Result<
         Vec<(
             u64,

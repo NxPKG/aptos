@@ -42,7 +42,7 @@ use aptos_types::{
         FeatureFlag, Features, OnChainConfig, TimedFeatureOverride, TimedFeaturesBuilder,
         ValidatorSet, Version,
     },
-    state_store::{state_key::StateKey, state_value::StateValue, TStateView},
+    state_store::{state_key::StateKey, state_value::StateValue, StateView, TStateView},
     transaction::{
         signature_verified_transaction::{
             into_signature_verified_block, SignatureVerifiedTransaction,
@@ -487,6 +487,97 @@ impl FakeExecutor {
             },
             None,
         ).map(BlockOutput::into_transaction_outputs_forced)
+    }
+
+    pub fn execute_transaction_block_with_resolver(
+        &self,
+        txn_block: &[Transaction],
+        resolver: &(impl StateView + Sync),
+    ) -> Result<Vec<TransactionOutput>, VMStatus> {
+        let mut trace_map: (usize, Vec<usize>, Vec<usize>) = TraceSeqMapping::default();
+
+        // dump serialized transaction details before execution, if tracing
+        if let Some(trace_dir) = &self.trace_dir {
+            let trace_data_dir = trace_dir.join(TRACE_DIR_DATA);
+            trace_map.0 = Self::trace(trace_data_dir.as_path(), self.get_state_view());
+            let trace_input_dir = trace_dir.join(TRACE_DIR_INPUT);
+            for txn in txn_block {
+                let input_seq = Self::trace(trace_input_dir.as_path(), txn);
+                trace_map.1.push(input_seq);
+            }
+        }
+
+        let sig_verified_block = into_signature_verified_block(txn_block.to_vec());
+
+        let mode = self.executor_mode.unwrap_or_else(|| {
+            if env::var(ENV_ENABLE_PARALLEL).is_ok() {
+                ExecutorMode::BothComparison
+            } else {
+                ExecutorMode::SequentialOnly
+            }
+        });
+
+        // TODO fetch values from state?
+        let onchain_config = BlockExecutorConfigFromOnchain::on_but_large_for_test();
+
+        let sequential_output = if mode != ExecutorMode::ParallelOnly {
+            Some(
+                AptosVM::execute_block(&sig_verified_block, resolver, onchain_config.clone())
+                    .map(BlockOutput::into_transaction_outputs_forced),
+            )
+        } else {
+            None
+        };
+
+        let parallel_output = if mode != ExecutorMode::SequentialOnly {
+            Some(self.execute_transaction_block_parallel(&sig_verified_block, onchain_config))
+        } else {
+            None
+        };
+
+        if mode == ExecutorMode::BothComparison {
+            let sequential_output = sequential_output.as_ref().unwrap();
+            let parallel_output = parallel_output.as_ref().unwrap();
+
+            // make more granular comparison, to be able to understand test failures better
+            if sequential_output.is_ok() && parallel_output.is_ok() {
+                let txns_output_1 = sequential_output.as_ref().unwrap();
+                let txns_output_2 = parallel_output.as_ref().unwrap();
+                assert_outputs_equal(txns_output_1, "sequential", txns_output_2, "parallel");
+            } else {
+                assert_eq!(sequential_output, parallel_output, "Output mismatch");
+            }
+        }
+
+        let output = sequential_output.or(parallel_output).unwrap();
+
+        if let Some(logger) = &self.executed_output {
+            logger.log(format!("{:#?}\n", output).as_str());
+        }
+
+        // dump serialized transaction output after execution, if tracing
+        if let Some(trace_dir) = &self.trace_dir {
+            match &output {
+                Ok(results) => {
+                    let trace_output_dir = trace_dir.join(TRACE_DIR_OUTPUT);
+                    for res in results {
+                        let output_seq = Self::trace(trace_output_dir.as_path(), res);
+                        trace_map.2.push(output_seq);
+                    }
+                },
+                Err(e) => {
+                    let mut error_file = OpenOptions::new()
+                        .write(true)
+                        .create_new(true)
+                        .open(trace_dir.join(TRACE_FILE_ERROR))
+                        .unwrap();
+                    error_file.write_all(e.to_string().as_bytes()).unwrap();
+                },
+            }
+            let trace_meta_dir = trace_dir.join(TRACE_DIR_META);
+            Self::trace(trace_meta_dir.as_path(), &trace_map);
+        }
+        output
     }
 
     pub fn execute_transaction_block(
@@ -994,12 +1085,12 @@ impl FakeExecutor {
         entry_fn: &EntryFunction,
         resolver: &impl AptosMoveResolver,
     ) -> Result<(WriteSet, Vec<ContractEvent>), VMStatus> {
-        // let resolver = self.data_store.as_move_resolver();
-
         let timed_features = TimedFeaturesBuilder::enable_all()
             .with_override_profile(TimedFeatureOverride::Testing)
             .build();
 
+        let mut features = Features::fetch_config(resolver).unwrap_or_default();
+        features.enable(FeatureFlag::VM_BINARY_FORMAT_V6);
         let vm = MoveVmExt::new(
             NativeGasParameters::zeros(),
             MiscGasParameters::zeros(),
@@ -1011,7 +1102,6 @@ impl FakeExecutor {
         )
         .unwrap();
         let mut session = vm.new_session(resolver, SessionId::void());
-
         let function =
             session.load_function(entry_fn.module(), entry_fn.function(), entry_fn.ty_args())?;
         let struct_constructors = self.features.is_enabled(FeatureFlag::STRUCT_CONSTRUCTORS);
