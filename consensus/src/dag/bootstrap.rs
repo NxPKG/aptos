@@ -593,14 +593,21 @@ impl DagBootstrapper {
 
         let chain_health: Arc<dyn TChainHealth> = match may_be_leader_reputation {
             Some(adapter) => ChainHealthBackoff::new(
-                ChainHealthBackoffConfig::new(self.config.chain_backoff_config.clone()),
+                ChainHealthBackoffConfig::new(
+                    self.config.health_config.chain_backoff_config.clone(),
+                ),
                 adapter.clone(),
             ),
             None => NoChainHealth::new(),
         };
         let pipeline_health = PipelineLatencyBasedBackpressure::new(
-            Duration::from_millis(self.config.voter_pipeline_latency_limit_ms),
-            PipelineBackpressureConfig::new(self.config.pipeline_backpressure_config.clone()),
+            Duration::from_millis(self.config.health_config.voter_pipeline_latency_limit_ms),
+            PipelineBackpressureConfig::new(
+                self.config
+                    .health_config
+                    .pipeline_backpressure_config
+                    .clone(),
+            ),
             ordered_notifier.clone(),
         );
         let health_backoff =
