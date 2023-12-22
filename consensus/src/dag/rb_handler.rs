@@ -1,10 +1,10 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
+use super::{dag_store::PersistentDagStore, health::HealthBackoff};
 use crate::dag::{
     dag_fetcher::TFetchRequester,
     dag_network::RpcHandler,
-    dag_store::Dag,
     errors::NodeBroadcastHandleError,
     observability::{
         logging::{LogEvent, LogSchema},
@@ -17,7 +17,6 @@ use crate::dag::{
 use anyhow::{bail, ensure};
 use aptos_config::config::DagPayloadConfig;
 use aptos_consensus_types::common::{Author, Round};
-use aptos_infallible::RwLock;
 use aptos_logger::{debug, error};
 use aptos_types::{
     epoch_state::EpochState, validator_signer::ValidatorSigner, validator_txn::ValidatorTransaction,
@@ -25,10 +24,8 @@ use aptos_types::{
 use async_trait::async_trait;
 use std::{collections::BTreeMap, mem, sync::Arc};
 
-use super::health::HealthBackoff;
-
 pub(crate) struct NodeBroadcastHandler {
-    dag: Arc<RwLock<Dag>>,
+    dag: Arc<PersistentDagStore>,
     votes_by_round_peer: BTreeMap<Round, BTreeMap<Author, Vote>>,
     signer: Arc<ValidatorSigner>,
     epoch_state: Arc<EpochState>,
@@ -41,7 +38,7 @@ pub(crate) struct NodeBroadcastHandler {
 
 impl NodeBroadcastHandler {
     pub fn new(
-        dag: Arc<RwLock<Dag>>,
+        dag: Arc<PersistentDagStore>,
         signer: Arc<ValidatorSigner>,
         epoch_state: Arc<EpochState>,
         storage: Arc<dyn DAGStorage>,
@@ -177,7 +174,10 @@ impl RpcHandler for NodeBroadcastHandler {
     type Response = Vote;
 
     async fn process(&mut self, node: Self::Request) -> anyhow::Result<Self::Response> {
-        ensure!(!self.health_backoff.stop_voting(), NodeBroadcastHandleError::VoteRefused);
+        ensure!(
+            !self.health_backoff.stop_voting(),
+            NodeBroadcastHandleError::VoteRefused
+        );
 
         let node = self.validate(node)?;
         observe_node(node.timestamp(), NodeStage::NodeReceived);

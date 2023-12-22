@@ -1,31 +1,28 @@
 // Copyright © Aptos Foundation
 
-use crate::{
-    dag::{
-        adapter::TLedgerInfoProvider,
-        anchor_election::RoundRobinAnchorElection,
-        dag_driver::DagDriver,
-        dag_fetcher::TFetchRequester,
-        dag_network::{RpcWithFallback, TDAGNetworkSender},
-        dag_store::Dag,
-        errors::DagDriverError,
-        health::{HealthBackoff, NoChainHealth, NoPipelineBackpressure},
-        order_rule::OrderRule,
-        round_state::{OptimisticResponsive, RoundState},
-        tests::{
-            dag_test::MockStorage,
-            helpers::{new_certified_node, MockPayloadManager, TEST_DAG_WINDOW},
-            order_rule_tests::TestNotifier,
-        },
-        types::{CertifiedAck, DAGMessage, TestAck},
-        DAGRpcResult, RpcHandler,
+use crate::dag::{
+    adapter::TLedgerInfoProvider,
+    anchor_election::RoundRobinAnchorElection,
+    dag_driver::DagDriver,
+    dag_fetcher::TFetchRequester,
+    dag_network::{RpcWithFallback, TDAGNetworkSender},
+    dag_store::PersistentDagStore,
+    errors::DagDriverError,
+    health::{HealthBackoff, NoChainHealth, NoPipelineBackpressure},
+    order_rule::OrderRule,
+    round_state::{OptimisticResponsive, RoundState},
+    tests::{
+        dag_test::MockStorage,
+        helpers::{new_certified_node, MockPayloadManager, TEST_DAG_WINDOW},
+        order_rule_tests::TestNotifier,
     },
-    test_utils::MockPayloadManager as MockPayloadClient,
+    types::{CertifiedAck, DAGMessage, TestAck},
+    DAGRpcResult, RpcHandler,
 };
+use crate::test_utils::MockPayloadManager as MockPayloadClient;
 use aptos_bounded_executor::BoundedExecutor;
 use aptos_config::config::DagPayloadConfig;
 use aptos_consensus_types::common::{Author, Round};
-use aptos_infallible::RwLock;
 use aptos_reliable_broadcast::{RBNetworkSender, ReliableBroadcast};
 use aptos_time_service::TimeService;
 use aptos_types::{
@@ -122,13 +119,13 @@ fn setup(
     let mock_ledger_info = LedgerInfo::mock_genesis(None);
     let mock_ledger_info = generate_ledger_info_with_sig(signers, mock_ledger_info);
     let storage = Arc::new(MockStorage::new_with_ledger_info(mock_ledger_info.clone()));
-    let dag = Arc::new(RwLock::new(Dag::new(
+    let dag = Arc::new(PersistentDagStore::new(
         epoch_state.clone(),
         storage.clone(),
         Arc::new(MockPayloadManager {}),
         0,
         TEST_DAG_WINDOW,
-    )));
+    ));
 
     let rb = Arc::new(ReliableBroadcast::new(
         signers.iter().map(|s| s.author()).collect(),
@@ -148,7 +145,7 @@ fn setup(
         Arc::new(RoundRobinAnchorElection::new(validators)),
         Arc::new(TestNotifier { tx }),
         TEST_DAG_WINDOW as Round,
-        None
+        None,
     );
 
     let fetch_requester = Arc::new(MockFetchRequester {});
