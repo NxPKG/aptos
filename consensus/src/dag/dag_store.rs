@@ -12,13 +12,13 @@ use crate::{
 use anyhow::{anyhow, ensure};
 use aptos_consensus_types::common::{Author, Round};
 use aptos_crypto::HashValue;
-use aptos_infallible::{RwLock, RwLockReadGuard};
+use aptos_infallible::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use aptos_logger::{debug, error, warn};
 use aptos_types::{epoch_state::EpochState, validator_verifier::ValidatorVerifier};
 use dashmap::DashSet;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    ops::Deref,
+    ops::{Deref, DerefMut},
     sync::Arc,
 };
 
@@ -375,19 +375,16 @@ impl Dag {
 }
 
 pub struct PersistentDagStore {
-    dag: RwLock<Dag>,
-    storage: Arc<dyn DAGStorage>,
-    payload_manager: Arc<dyn TPayloadManager>,
+    inner: RwLock<Inner>,
+    /// This prevents concurrent garbage collection of the Dag.
     gc_guard: RwLock<()>,
-    fine_grained_lock: DashSet<(Round, Author)>,
 }
 
-impl Deref for PersistentDagStore {
-    type Target = RwLock<Dag>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.dag
-    }
+struct Inner {
+    dag: Dag,
+    storage: Arc<dyn DAGStorage>,
+    payload_manager: Arc<dyn TPayloadManager>,
+    fine_grained_lock: DashSet<(Round, Author)>,
 }
 
 impl PersistentDagStore {
@@ -411,7 +408,7 @@ impl PersistentDagStore {
         );
         for (digest, certified_node) in all_nodes {
             // TODO: save the storage call in this case
-            if let Err(e) = dag.add_node(certified_node) {
+            if let Err(e) = dag.write().add_node(certified_node) {
                 debug!("Delete node after bootstrap due to {}", e);
                 to_prune.push(digest);
             }
@@ -438,11 +435,13 @@ impl PersistentDagStore {
         let size = window_size as usize * epoch_state.verifier.len();
         let dag = Dag::new_empty(epoch_state, start_round, window_size);
         Self {
-            dag: RwLock::new(dag),
-            storage,
-            payload_manager,
+            inner: RwLock::new(Inner {
+                dag,
+                storage,
+                payload_manager,
+                fine_grained_lock: DashSet::with_capacity(size),
+            }),
             gc_guard: RwLock::new(()),
-            fine_grained_lock: DashSet::with_capacity(size),
         }
     }
 
@@ -452,60 +451,133 @@ impl PersistentDagStore {
         payload_manager: Arc<dyn TPayloadManager>,
     ) -> Self {
         Self {
-            dag: RwLock::new(dag),
-            storage,
-            payload_manager,
+            inner: RwLock::new(Inner {
+                dag,
+                storage,
+                payload_manager,
+                fine_grained_lock: DashSet::new(),
+            }),
             gc_guard: RwLock::new(()),
-            fine_grained_lock: DashSet::new(),
         }
     }
 
-    /// This is to prevent concurrent garbage collection of the Dag.
-    pub fn gc_guard(&self) -> RwLockReadGuard<'_, ()> {
-        self.gc_guard.read()
+    pub fn read(&self) -> DagReadGuard {
+        DagReadGuard {
+            gc_guard: self.gc_guard.read(),
+            inner: self.inner.read(),
+        }
     }
 
-    pub fn add_node(&self, node: CertifiedNode) -> anyhow::Result<()> {
-        self.dag.write().validate_new_node(&node)?;
+    pub fn write(&self) -> DagWriteGuard {
+        DagWriteGuard {
+            gc_guard: self.gc_guard.read(),
+            inner: self.inner.write(),
+        }
+    }
+
+    pub fn prune_lock(&self) -> DagPruneGuard {
+        DagPruneGuard {
+            gc_guard: self.gc_guard.write(),
+            inner: self.inner.write(),
+        }
+    }
+}
+
+pub struct DagReadGuard<'a> {
+    gc_guard: RwLockReadGuard<'a, ()>,
+    inner: RwLockReadGuard<'a, Inner>,
+}
+
+impl<'a> Deref for DagReadGuard<'a> {
+    type Target = Dag;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner.dag
+    }
+}
+
+pub struct DagWriteGuard<'a> {
+    gc_guard: RwLockReadGuard<'a, ()>,
+    inner: RwLockWriteGuard<'a, Inner>,
+}
+
+impl<'a> Deref for DagWriteGuard<'a> {
+    type Target = Dag;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner.dag
+    }
+}
+
+impl<'a> DerefMut for DagWriteGuard<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner.dag
+    }
+}
+
+impl<'a> DagWriteGuard<'a> {
+    pub fn add_node(&mut self, node: CertifiedNode) -> anyhow::Result<()> {
+        let Inner {
+            dag,
+            storage,
+            payload_manager,
+            fine_grained_lock,
+        } = &mut *self.inner;
+
+        let round = node.round();
+        let author = *node.author();
+
+        dag.validate_new_node(&node)?;
 
         ensure!(
-            self.fine_grained_lock
-                .insert((node.round(), *node.author())),
+            fine_grained_lock.insert((round, author)),
             "concurrent insertion"
         );
         defer!({
-            assert!(self
-                .fine_grained_lock
-                .remove(&(node.round(), *node.author()))
-                .is_some());
+            assert!(fine_grained_lock.remove(&(round, author)).is_some());
         });
 
         // mutate after all checks pass
-        self.storage.save_certified_node(&node)?;
+        storage.save_certified_node(&node)?;
 
         debug!("Added node {}", node.id());
 
-        let mut dag_writer = self.dag.write();
-
-        self.payload_manager
-            .prefetch_payload_data(node.payload(), node.metadata().timestamp());
-        dag_writer.add_validated_node(node);
-
-        drop(dag_writer);
+        payload_manager.prefetch_payload_data(node.payload(), node.metadata().timestamp());
+        dag.add_validated_node(node);
 
         Ok(())
     }
+}
 
-    pub fn commit_callback(&self, commit_round: Round) {
-        let _guard = self.gc_guard.write();
-        let to_prune = self.write().commit_callback(commit_round);
+pub struct DagPruneGuard<'a> {
+    gc_guard: RwLockWriteGuard<'a, ()>,
+    inner: RwLockWriteGuard<'a, Inner>,
+}
+
+impl<'a> Deref for DagPruneGuard<'a> {
+    type Target = Dag;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner.dag
+    }
+}
+
+impl<'a> DerefMut for DagPruneGuard<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner.dag
+    }
+}
+
+impl<'a> DagPruneGuard<'a> {
+    pub fn commit_callback(&mut self, commit_round: Round) {
+        let to_prune = self.inner.dag.commit_callback(commit_round);
         if let Some(to_prune) = to_prune {
             let digests = to_prune
                 .iter()
                 .flat_map(|(_, round_ref)| round_ref.iter().flatten())
                 .map(|node_status| *node_status.as_node().metadata().digest())
                 .collect();
-            if let Err(e) = self.storage.delete_certified_nodes(digests) {
+            if let Err(e) = self.inner.storage.delete_certified_nodes(digests) {
                 error!("Error deleting expired nodes: {:?}", e);
             }
         }

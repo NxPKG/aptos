@@ -125,18 +125,17 @@ impl DagDriver {
 
     async fn add_node(&mut self, node: CertifiedNode) -> anyhow::Result<()> {
         let (highest_strong_link_round, strong_links) = {
-            let _guard = self.dag.gc_guard();
+            let mut dag = self.dag.write();
 
-            if !self.dag.read().all_exists(node.parents_metadata()) {
+            if !dag.all_exists(node.parents_metadata()) {
                 if let Err(err) = self.fetch_requester.request_for_certified_node(node) {
                     error!("request to fetch failed: {}", err);
                 }
                 bail!(DagDriverError::MissingParents);
             }
 
-            self.dag.add_node(node)?;
+            dag.add_node(node)?;
 
-            let dag_reader = self.dag.read();
             let highest_strong_links_round =
                 dag_writer.highest_strong_links_round(&self.epoch_state.verifier);
             (

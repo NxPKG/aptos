@@ -139,7 +139,7 @@ fn test_dag_insertion_succeed() {
     // Round 1 - nodes 0, 1, 2 links to vec![]
     for signer in &signers[0..3] {
         let node = new_certified_node(1, signer.author(), vec![]);
-        assert!(dag.add_node(node).is_ok());
+        assert!(dag.write().add_node(node).is_ok());
     }
     let parents = dag
         .read()
@@ -149,7 +149,7 @@ fn test_dag_insertion_succeed() {
     // Round 2 nodes 0, 1, 2 links to 0, 1, 2
     for signer in &signers[0..3] {
         let node = new_certified_node(2, signer.author(), parents.clone());
-        assert!(dag.add_node(node).is_ok());
+        assert!(dag.write().add_node(node).is_ok());
     }
 
     // Round 3 nodes 1, 2 links to 0, 1, 2
@@ -160,7 +160,7 @@ fn test_dag_insertion_succeed() {
 
     for signer in &signers[1..3] {
         let node = new_certified_node(3, signer.author(), parents.clone());
-        assert!(dag.add_node(node).is_ok());
+        assert!(dag.write().add_node(node).is_ok());
     }
 
     // not enough strong links
@@ -177,9 +177,9 @@ fn test_dag_insertion_failure() {
     // Round 1 - nodes 0, 1, 2 links to vec![]
     for signer in &signers[0..3] {
         let node = new_certified_node(1, signer.author(), vec![]);
-        assert!(dag.add_node(node.clone()).is_ok());
+        assert!(dag.write().add_node(node.clone()).is_ok());
         // duplicate node
-        assert!(dag.add_node(node).is_err());
+        assert!(dag.write().add_node(node).is_err());
     }
 
     let missing_node = new_certified_node(1, signers[3].author(), vec![]);
@@ -191,17 +191,17 @@ fn test_dag_insertion_failure() {
 
     let node = new_certified_node(2, signers[0].author(), parents.clone());
     // parents not exist
-    assert!(dag.add_node(node).is_err());
+    assert!(dag.write().add_node(node).is_err());
 
     let node = new_certified_node(3, signers[0].author(), vec![]);
     // round too high
-    assert!(dag.add_node(node).is_err());
+    assert!(dag.write().add_node(node).is_err());
 
     let node = new_certified_node(2, signers[0].author(), parents[0..3].to_vec());
-    assert!(dag.add_node(node).is_ok());
+    assert!(dag.write().add_node(node).is_ok());
     let node = new_certified_node(2, signers[0].author(), vec![]);
     // equivocation node
-    assert!(dag.add_node(node).is_err());
+    assert!(dag.write().add_node(node).is_err());
 }
 
 #[test]
@@ -218,7 +218,7 @@ fn test_dag_recover_from_storage() {
         for signer in &signers[0..3] {
             let node = new_certified_node(round, signer.author(), parents.clone());
             metadatas.push(node.metadata().clone());
-            assert!(dag.add_node(node).is_ok());
+            assert!(dag.write().add_node(node).is_ok());
         }
     }
     let new_dag = PersistentDagStore::new(
@@ -264,7 +264,7 @@ fn test_dag_bitmask() {
             .unwrap_or_default();
         for signer in &signers[0..3] {
             let node = new_certified_node(round, signer.author(), parents.clone());
-            assert!(dag.add_node(node).is_ok());
+            assert!(dag.write().add_node(node).is_ok());
         }
     }
     let mut bitmask = vec![vec![true, true, true, false]; 4];
@@ -278,7 +278,7 @@ fn test_dag_bitmask() {
             .get_strong_links_for_round(round, &epoch_state.verifier)
             .unwrap_or_default();
         let node = new_certified_node(round, signers[3].author(), parents.clone());
-        assert!(dag.add_node(node).is_ok());
+        assert!(dag.write().add_node(node).is_ok());
     }
     assert_eq!(
         dag.read().bitmask(15),

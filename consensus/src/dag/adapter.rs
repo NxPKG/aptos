@@ -209,7 +209,8 @@ impl OrderedNotifier for OrderedNotifierAdapter {
                     block_created_ts
                         .write()
                         .retain(|&round, _| round > commit_decision.commit_info().round());
-                    dag.commit_callback(commit_decision.commit_info().round());
+                    dag.prune_lock()
+                        .commit_callback(commit_decision.commit_info().round());
                     ledger_info_provider
                         .write()
                         .notify_commit_proof(commit_decision);

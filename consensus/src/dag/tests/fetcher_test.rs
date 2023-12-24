@@ -35,7 +35,7 @@ async fn test_dag_fetcher_receiver() {
     // Round 1 - nodes 0, 1, 2 links to vec![]
     for signer in &signers[0..3] {
         let node = new_certified_node(1, signer.author(), vec![]);
-        assert!(dag.add_node(node.clone()).is_ok());
+        assert!(dag.write().add_node(node.clone()).is_ok());
         first_round_nodes.push(node);
     }
 

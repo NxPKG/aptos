@@ -288,7 +288,7 @@ impl TDagFetcher for DagFetcher {
                             // TODO: support chunk response or fallback to state sync
                             {
                                 for node in certified_nodes.into_iter().rev() {
-                                    if let Err(e) = dag.add_node(node) {
+                                    if let Err(e) = dag.write().add_node(node) {
                                         error!(error = ?e, "failed to add node");
                                     }
                                 }

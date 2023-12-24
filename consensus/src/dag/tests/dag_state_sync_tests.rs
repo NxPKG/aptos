@@ -91,7 +91,7 @@ impl TDagFetcher for MockDagFetcher {
             .unwrap();
 
         for node in response.certified_nodes().into_iter().rev() {
-            new_dag.add_node(node).unwrap()
+            new_dag.write().add_node(node).unwrap()
         }
 
         Ok(())
@@ -158,7 +158,7 @@ async fn test_dag_state_sync() {
     ));
     for round_nodes in &nodes {
         for node in round_nodes.iter().flatten() {
-            fast_dag.add_node(node.clone()).unwrap();
+            fast_dag.write().add_node(node.clone()).unwrap();
         }
     }
 
@@ -171,7 +171,7 @@ async fn test_dag_state_sync() {
     ));
     for round_nodes in nodes.iter().take(SLOW_DAG_ROUNDS as usize) {
         for node in round_nodes.iter().flatten() {
-            slow_dag.add_node(node.clone()).unwrap();
+            slow_dag.write().add_node(node.clone()).unwrap();
         }
     }
 
