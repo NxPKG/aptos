@@ -322,7 +322,16 @@ impl<'env> ConstantFolder<'env> {
     ///
     /// Argument expression `node_id` values and `id` may need to be fully typed in `self.env`
     /// for success.
-    pub fn fold_vector_exp(&mut self, id: NodeId, oper_name: &str, args: &[Exp]) -> Option<Exp> {
+    pub fn fold_vector_exp<T>(
+        &mut self,
+        id: NodeId,
+        constructor: T,
+        oper_name: &str,
+        args: &[Exp],
+    ) -> Option<Exp>
+    where
+        T: FnOnce(Vec<Value>) -> Value,
+    {
         let mut reasons: Vec<(Loc, String)> = Vec::new();
         let mut vec_result: Vec<Value> = Vec::new();
         for (idx, exp) in args.iter().enumerate() {
@@ -341,7 +350,7 @@ impl<'env> ConstantFolder<'env> {
             }
         }
         if reasons.is_empty() {
-            Some(ExpData::Value(id, Value::Vector(vec_result)).into_exp())
+            Some(ExpData::Value(id, constructor(vec_result)).into_exp())
         } else {
             self.env.diag_with_labels(
                 Severity::Error,
@@ -357,9 +366,9 @@ impl<'env> ConstantFolder<'env> {
 impl<'env> ExpRewriterFunctions for ConstantFolder<'env> {
     fn rewrite_call(&mut self, id: NodeId, oper: &Operation, args: &[Exp]) -> Option<Exp> {
         if matches!(oper, Operation::Tuple) {
-            self.fold_vector_exp(id, "tuple", args)
+            self.fold_vector_exp(id, Value::Tuple, "tuple", args)
         } else if matches!(oper, Operation::Vector) {
-            self.fold_vector_exp(id, "vector", args)
+            self.fold_vector_exp(id, Value::Vector, "vector", args)
         } else if args.len() == 1 {
             // unary op
             self.fold_unary_exp(id, oper, &args[0])

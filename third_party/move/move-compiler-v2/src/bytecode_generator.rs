@@ -501,6 +501,18 @@ impl<'env> Generator<'env> {
             Value::Bool(x) => Constant::Bool(*x),
             Value::ByteArray(x) => Constant::ByteArray(x.clone()),
             Value::AddressArray(x) => Constant::AddressArray(x.clone()),
+            Value::Tuple(x) => {
+                if let Some(inner_ty) = ty.get_vector_element_type() {
+                    Constant::Vector(
+                        x.iter()
+                            .map(|v| self.to_constant(id, inner_ty.clone(), v))
+                            .collect(),
+                    )
+                } else {
+                    self.internal_error(id, format!("inconsistent tuple type: {:?}", ty));
+                    Constant::Bool(false)
+                }
+            },
             Value::Vector(x) => {
                 if let Some(inner_ty) = ty.get_vector_element_type() {
                     Constant::Vector(

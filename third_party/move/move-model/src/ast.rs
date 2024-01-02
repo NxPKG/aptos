@@ -1444,6 +1444,7 @@ pub enum Value {
     ByteArray(Vec<u8>),
     AddressArray(Vec<Address>), // TODO: merge AddressArray to Vector type in the future
     Vector(Vec<Value>),
+    Tuple(Vec<Value>),
 }
 
 // enables `env.display(&value)`
@@ -1455,8 +1456,9 @@ impl<'a> fmt::Display for EnvDisplay<'a, Value> {
             Value::Bool(b) => write!(f, "{}", b),
             // TODO(tzakian): Figure out a better story for byte array displays
             Value::ByteArray(bytes) => write!(f, "{:?}", bytes),
-            Value::AddressArray(array) => write!(f, "{:?}", array),
+            Value::AddressArray(array) => write!(f, "a{:?}", array),
             Value::Vector(array) => write!(f, "{:?}", array),
+            Value::Tuple(array) => write!(f, "({:?})", array),
         }
     }
 }
