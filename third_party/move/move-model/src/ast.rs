@@ -635,9 +635,9 @@ impl ExpData {
     /// Result is ordered by occurrence.
     pub fn free_vars_with_types(&self, env: &GlobalEnv) -> Vec<(Symbol, Type)> {
         let mut vars = vec![];
-        let var_collector = |id: &NodeId, sym: &Symbol| {
-            if !vars.iter().any(|(s, _)| s == sym) {
-                vars.push((*sym, env.get_node_type(*id)));
+        let var_collector = |id: NodeId, sym: Symbol| {
+            if !vars.iter().any(|(s, _)| *s == sym) {
+                vars.push((sym, env.get_node_type(id)));
             }
         };
         self.visit_free_local_vars(var_collector);
@@ -665,7 +665,7 @@ impl ExpData {
     /// Visits free local variables with node id in this expression.
     fn visit_free_local_vars<F>(&self, mut node_symbol_visitor: F)
     where
-        F: FnMut(&NodeId, &Symbol),
+        F: FnMut(NodeId, Symbol),
     {
         let mut shadowed: BTreeMap<Symbol, usize> = BTreeMap::new();
         let mut visitor = |post: bool, e: &ExpData| {
@@ -685,7 +685,7 @@ impl ExpData {
                 if let Assign(_, pat, _) = e {
                     for (id, sym) in pat.vars().iter() {
                         if shadowed.get(sym).cloned().unwrap_or(0) == 0 {
-                            node_symbol_visitor(id, sym);
+                            node_symbol_visitor(*id, *sym);
                         }
                     }
                 } else {
@@ -700,7 +700,7 @@ impl ExpData {
             if post {
                 if let LocalVar(id, sym) = e {
                     if shadowed.get(sym).cloned().unwrap_or(0) == 0 {
-                        node_symbol_visitor(id, sym);
+                        node_symbol_visitor(*id, *sym);
                     }
                 } else {
                     for sym in &decls {
@@ -718,8 +718,8 @@ impl ExpData {
     /// Returns just the free local variables in this expression.
     pub fn free_vars(&self) -> BTreeSet<Symbol> {
         let mut vars = BTreeSet::new();
-        let just_vars_collector = |_id: &NodeId, sym: &Symbol| {
-            vars.insert(*sym);
+        let just_vars_collector = |_id: NodeId, sym: Symbol| {
+            vars.insert(sym);
         };
         self.visit_free_local_vars(just_vars_collector);
         vars

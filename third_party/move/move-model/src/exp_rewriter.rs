@@ -52,9 +52,9 @@ impl<'env, 'rewriter> ExpRewriter<'env, 'rewriter> {
     }
 
     /// Test for shadowing
-    fn is_shadowed(&self, sym: &Symbol) -> bool {
+    fn is_shadowed(&self, sym: Symbol) -> bool {
         for vars in &self.shadowed {
-            if vars.contains(sym) {
+            if vars.contains(&sym) {
                 return true;
             }
         }
@@ -73,7 +73,7 @@ impl<'env, 'rewriter> ExpRewriterFunctions for ExpRewriter<'env, 'rewriter> {
     }
 
     fn rewrite_local_var(&mut self, id: NodeId, sym: Symbol) -> Option<Exp> {
-        if self.is_shadowed(&sym) {
+        if self.is_shadowed(sym) {
             None
         } else {
             (*self.replacer)(id, RewriteTarget::LocalVar(sym))
@@ -199,7 +199,7 @@ pub trait ExpRewriterFunctions {
         use ExpData::*;
         match exp.as_ref() {
             Value(id, value) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
                 if let Some(new_exp) = self.rewrite_value(new_id, value) {
                     new_exp
                 } else if id_changed {
@@ -209,7 +209,7 @@ pub trait ExpRewriterFunctions {
                 }
             },
             LocalVar(id, sym) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
                 if let Some(new_exp) = self.rewrite_local_var(new_id, *sym) {
                     new_exp
                 } else if id_changed {
@@ -219,7 +219,7 @@ pub trait ExpRewriterFunctions {
                 }
             },
             Temporary(id, idx) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
                 if let Some(new_exp) = self.rewrite_temporary(new_id, *idx) {
                     new_exp
                 } else if id_changed {
@@ -229,7 +229,7 @@ pub trait ExpRewriterFunctions {
                 }
             },
             Call(id, oper, args) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
                 let new_args_opt = self.internal_rewrite_vec(args);
                 let args_ref = if let Some(new_args) = &new_args_opt {
                     new_args.as_slice()
@@ -250,7 +250,7 @@ pub trait ExpRewriterFunctions {
                 }
             },
             Invoke(id, target, args) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
                 let (target_changed, new_target) = self.internal_rewrite_exp(target);
                 let new_args_opt = self.internal_rewrite_vec(args);
                 let args_ref = if let Some(new_args) = &new_args_opt {
@@ -272,7 +272,7 @@ pub trait ExpRewriterFunctions {
                 }
             },
             Lambda(id, pat, body) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
                 let (pat_changed, new_pat) = self.internal_rewrite_pattern(pat, true);
                 self.rewrite_enter_scope(new_pat.vars().iter());
                 let (body_changed, new_body) = self.internal_rewrite_exp(body);
@@ -286,7 +286,7 @@ pub trait ExpRewriterFunctions {
                 }
             },
             Block(id, pat, binding, body) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
                 // Note that `binding` expr must be evaluated *before* we enter new pattern scope.
                 let (binding_changed, new_binding) = if let Some(b) = binding {
                     let (changed, b) = self.internal_rewrite_exp(b);
@@ -308,7 +308,7 @@ pub trait ExpRewriterFunctions {
                 }
             },
             Quant(id, kind, ranges, triggers, cond, body) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
                 let (ranges_changed, new_ranges) = self.internal_rewrite_quant_ranges(ranges);
                 self.rewrite_enter_scope(
                     ranges
@@ -353,7 +353,7 @@ pub trait ExpRewriterFunctions {
                 }
             },
             IfElse(id, cond, then, else_) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
                 let (cond_changed, new_cond) = self.internal_rewrite_exp(cond);
                 let (then_changed, new_then) = self.internal_rewrite_exp(then);
                 let (else_changed, new_else) = self.internal_rewrite_exp(else_);
@@ -367,7 +367,7 @@ pub trait ExpRewriterFunctions {
                 }
             },
             Sequence(id, es) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
                 let changed_vec = self.internal_rewrite_vec(es);
                 if id_changed || changed_vec.is_some() {
                     Sequence(new_id, changed_vec.unwrap_or_else(|| es.clone())).into_exp()
@@ -376,7 +376,7 @@ pub trait ExpRewriterFunctions {
                 }
             },
             Loop(id, body) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
                 let (body_changed, new_body) = self.internal_rewrite_exp(body);
                 if id_changed || body_changed {
                     Loop(new_id, new_body).into_exp()
@@ -385,7 +385,7 @@ pub trait ExpRewriterFunctions {
                 }
             },
             LoopCont(id, do_cont) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
                 if id_changed {
                     LoopCont(new_id, *do_cont).into_exp()
                 } else {
@@ -393,7 +393,7 @@ pub trait ExpRewriterFunctions {
                 }
             },
             Return(id, val) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
                 let (val_changed, new_val) = self.internal_rewrite_exp(val);
                 if id_changed || val_changed {
                     Return(new_id, new_val).into_exp()
@@ -402,7 +402,7 @@ pub trait ExpRewriterFunctions {
                 }
             },
             Assign(id, lhs, rhs) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
                 let (rhs_changed, new_rhs) = self.internal_rewrite_exp(rhs);
                 let (lhs_changed, new_lhs) = self.internal_rewrite_pattern(lhs, false);
                 if id_changed || lhs_changed || rhs_changed {
@@ -412,7 +412,7 @@ pub trait ExpRewriterFunctions {
                 }
             },
             Mutate(id, lhs, rhs) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
                 let (rhs_changed, new_rhs) = self.internal_rewrite_exp(rhs);
                 let (lhs_changed, new_lhs) = self.internal_rewrite_exp(lhs);
                 if id_changed || lhs_changed || rhs_changed {
@@ -422,8 +422,8 @@ pub trait ExpRewriterFunctions {
                 }
             },
             SpecBlock(id, spec) => {
-                let (id_changed, new_id) = self.internal_rewrite_id(id);
-                let (spec_changed, new_spec) = self.internal_rewrite_spec(&new_id, spec);
+                let (id_changed, new_id) = self.internal_rewrite_id(*id);
+                let (spec_changed, new_spec) = self.internal_rewrite_spec(new_id, spec);
                 if id_changed || spec_changed {
                     SpecBlock(new_id, new_spec).into_exp()
                 } else {
@@ -489,19 +489,19 @@ pub trait ExpRewriterFunctions {
         }
     }
 
-    fn internal_rewrite_spec(&mut self, id: &NodeId, spec: &Spec) -> (bool, Spec) {
-        if let Some(new_spec) = self.rewrite_spec(*id, spec) {
+    fn internal_rewrite_spec(&mut self, id: NodeId, spec: &Spec) -> (bool, Spec) {
+        if let Some(new_spec) = self.rewrite_spec(id, spec) {
             (true, new_spec)
         } else {
             (false, spec.clone())
         }
     }
 
-    fn internal_rewrite_id(&mut self, id: &NodeId) -> (bool, NodeId) {
-        if let Some(new_id) = self.rewrite_node_id(*id) {
+    fn internal_rewrite_id(&mut self, id: NodeId) -> (bool, NodeId) {
+        if let Some(new_id) = self.rewrite_node_id(id) {
             (true, new_id)
         } else {
-            (false, *id)
+            (false, id)
         }
     }
 

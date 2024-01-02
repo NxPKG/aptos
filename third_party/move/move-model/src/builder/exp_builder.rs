@@ -234,7 +234,7 @@ impl<'env, 'translator, 'module_translator> ExpTranslator<'env, 'translator, 'mo
     pub fn get_type_params(&self) -> Vec<TypeParameter> {
         self.type_params
             .iter()
-            .map(|(n, _, loc)| TypeParameter::new_named(n, loc))
+            .map(|(n, _, loc)| TypeParameter::new_named(*n, loc))
             .collect()
     }
 

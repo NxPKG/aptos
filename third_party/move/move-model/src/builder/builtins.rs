@@ -34,7 +34,7 @@ pub(crate) fn declare_builtins(trans: &mut ModelBuilder) {
     };
 
     let param_t = &Type::TypeParameter(0);
-    let param_t_decl = TypeParameter::new_named(&trans.env.symbol_pool().make("T"), &loc);
+    let param_t_decl = TypeParameter::new_named(trans.env.symbol_pool().make("T"), &loc);
 
     let mk_num_const = |value: BigInt, visibility: EntryVisibility| ConstEntry {
         loc: loc.clone(),

@@ -3303,8 +3303,8 @@ impl EqIgnoringLoc for TypeParameter {
 
 impl TypeParameter {
     /// Creates a new type parameter of given name.
-    pub fn new_named(sym: &Symbol, loc: &Loc) -> Self {
-        Self(*sym, TypeParameterKind::default(), loc.clone())
+    pub fn new_named(sym: Symbol, loc: &Loc) -> Self {
+        Self(sym, TypeParameterKind::default(), loc.clone())
     }
 
     /// Turns an ordered list of type parameters into a vector of type parameters
