@@ -86,10 +86,10 @@ impl TestConfig {
         let verbose = cfg!(feature = "verbose-debug-print");
         let mut pipeline = FunctionTargetPipeline::default();
         if path.contains("/inlining/bug_11112") || path.contains("/inlining/bug_9717_looponly") {
+            pipeline.add_processor(Box::new(VisibilityChecker {}));
             pipeline.add_processor(Box::new(LiveVarAnalysisProcessor {
                 with_copy_inference: true,
             }));
-            pipeline.add_processor(Box::new(VisibilityChecker {}));
             pipeline.add_processor(Box::new(ReferenceSafetyProcessor {}));
             Self {
                 type_check_only: false,
@@ -98,20 +98,10 @@ impl TestConfig {
                 generate_file_format: false,
                 dump_annotated_targets: true,
             }
-        } else if path.contains("/inlining/") || path.contains("/folding/") {
-            pipeline.add_processor(Box::new(LiveVarAnalysisProcessor {
-                with_copy_inference: true,
-            }));
-            pipeline.add_processor(Box::new(VisibilityChecker {}));
-            pipeline.add_processor(Box::new(ReferenceSafetyProcessor {}));
-            Self {
-                type_check_only: false,
-                dump_ast: true,
-                pipeline,
-                generate_file_format: false,
-                dump_annotated_targets: verbose,
-            }
-        } else if path.contains("/inlining/") {
+        } else if path.contains("/inlining/")
+            || path.contains("/folding/")
+            || path.contains("/simplifier/")
+        {
             pipeline.add_processor(Box::new(VisibilityChecker {}));
             pipeline.add_processor(Box::new(LiveVarAnalysisProcessor {
                 with_copy_inference: true,
