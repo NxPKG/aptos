@@ -224,7 +224,7 @@ impl<'env> FunctionTarget<'env> {
 
     /// Get a raw name for a local, using its index.
     pub fn get_local_raw_name(&self, idx: TempIndex) -> Symbol {
-        self.global_env().symbol_pool().make(&format!("$t{}", idx))
+        self.global_env().symbol_pool().make_local_sym(idx)
     }
 
     /// Return true if this local has a user name.
@@ -269,7 +269,10 @@ impl<'env> FunctionTarget<'env> {
     /// should produce correct English whether a name is available or not.
     pub fn get_local_name_for_error_message(&self, temp: TempIndex) -> String {
         if let Some(sym) = self.data.local_names.get(&temp) {
-            format!("local `{}`", sym.display(self.global_env().symbol_pool()))
+            format!(
+                "local `{}`",
+                sym.display_user(self.global_env().symbol_pool())
+            )
         } else {
             "local".to_owned()
         }

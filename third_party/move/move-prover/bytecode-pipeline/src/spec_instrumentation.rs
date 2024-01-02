@@ -67,7 +67,7 @@ fn modify_check_fails_message(
         module_env
             .get_struct(mem.id)
             .get_name()
-            .display(env.symbol_pool()),
+            .display_user(env.symbol_pool()),
         targs_str
     )
 }

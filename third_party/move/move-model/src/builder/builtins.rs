@@ -24,6 +24,8 @@ pub(crate) fn declare_builtins(trans: &mut ModelBuilder) {
     let address_t = &Type::new_prim(PrimitiveType::Address);
 
     let mk_param = |trans: &ModelBuilder<'_>, p: usize, ty: Type| {
+        // TODO: should this be made unique to avoid clash with
+        // user vars named p23, etc.?
         Parameter(
             trans.env.symbol_pool().make(&format!("p{}", p)),
             ty,

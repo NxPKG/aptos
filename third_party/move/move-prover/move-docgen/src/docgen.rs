@@ -1950,7 +1950,7 @@ impl<'env> Docgen<'env> {
         format!(
             "{}_{}",
             self.ref_for_module(module_env),
-            item.display(self.env.symbol_pool())
+            item.display_user(self.env.symbol_pool())
         )
     }
 

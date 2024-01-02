@@ -34,7 +34,7 @@ pub fn check_for_function_typed_parameters(env: &mut GlobalEnv) {
                             .map(|param| {
                                 format!(
                                     "Parameter `{}` has a function type `{}`.",
-                                    param.0.display(env.symbol_pool()),
+                                    param.0.display_user(env.symbol_pool()),
                                     param.1.display(&type_ctx)
                                 )
                             })

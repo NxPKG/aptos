@@ -468,7 +468,7 @@ impl<'env, 'translator, 'module_translator> ExpTranslator<'env, 'translator, 'mo
     pub fn define_type_param(&mut self, loc: &Loc, name: Symbol, ty: Type, report_errors: bool) {
         if let Type::TypeParameter(..) = &ty {
             if self.type_params_table.insert(name, ty.clone()).is_some() && report_errors {
-                let param_name = name.display(self.symbol_pool());
+                let param_name = name.display_user(self.symbol_pool());
                 self.error(
                     loc,
                     &format!(
@@ -481,7 +481,7 @@ impl<'env, 'translator, 'module_translator> ExpTranslator<'env, 'translator, 'mo
             }
             self.type_params.push((name, ty, loc.clone()));
         } else if report_errors {
-            let param_name = name.display(self.symbol_pool());
+            let param_name = name.display_user(self.symbol_pool());
             let context = TypeDisplayContext::new(self.parent.parent.env);
             self.error(
                 loc,
@@ -554,7 +554,7 @@ impl<'env, 'translator, 'module_translator> ExpTranslator<'env, 'translator, 'mo
             .expect("symbol table empty")
             .insert(name, entry)
         {
-            let display = name.display(self.symbol_pool()).to_string();
+            let display = name.display_user(self.symbol_pool()).to_string();
             self.error_with_labels(
                 loc,
                 &format!("duplicate declaration of `{}`", display),
@@ -657,7 +657,7 @@ impl<'env, 'translator, 'module_translator> ExpTranslator<'env, 'translator, 'mo
                 );
             }
         }
-        format!("{}", name.display(self.symbol_pool()))
+        format!("{}", name.display_user(self.symbol_pool()))
     }
 
     /// Displays a call target candidate for error messages.
@@ -1651,7 +1651,7 @@ impl<'env, 'translator, 'module_translator> ExpTranslator<'env, 'translator, 'mo
                     &self.parent.parent.env.get_node_loc(id),
                     &format!(
                         "duplicate assignment to `{}`",
-                        sym.display(self.symbol_pool())
+                        sym.display_user(self.symbol_pool())
                     ),
                 )
             }
@@ -1692,7 +1692,7 @@ impl<'env, 'translator, 'module_translator> ExpTranslator<'env, 'translator, 'mo
                         } else {
                             self.error(
                                 loc,
-                                &format!("undeclared `{}`", name.display(self.symbol_pool())),
+                                &format!("undeclared `{}`", name.display_user(self.symbol_pool())),
                             )
                         }
                     }
@@ -1979,7 +1979,7 @@ impl<'env, 'translator, 'module_translator> ExpTranslator<'env, 'translator, 'mo
                                 loc,
                                 &format!(
                                     "Unable to find spec function from lifted lambda: {}",
-                                    remapped_sym.display(self.symbol_pool())
+                                    remapped_sym.display_user(self.symbol_pool())
                                 ),
                             );
                             return Some(self.new_error_exp());
@@ -1990,7 +1990,7 @@ impl<'env, 'translator, 'module_translator> ExpTranslator<'env, 'translator, 'mo
                                     loc,
                                     &format!(
                                         "Expect a unique spec function from lifted lambda: {}, found {}",
-                                        remapped_sym.display(self.symbol_pool()),
+                                        remapped_sym.display_user(self.symbol_pool()),
                                         entries.len()
                                     ),
                                 );
@@ -2037,7 +2037,7 @@ impl<'env, 'translator, 'module_translator> ExpTranslator<'env, 'translator, 'mo
                             loc,
                             &format!(
                                 "Parameter number mismatch on calling a spec function from lifted lambda: {},",
-                                remapped_sym.display(self.symbol_pool())
+                                remapped_sym.display_user(self.symbol_pool())
                             ),
                         );
                         return Some(self.new_error_exp());
@@ -2074,7 +2074,7 @@ impl<'env, 'translator, 'module_translator> ExpTranslator<'env, 'translator, 'mo
                                 loc,
                                 &format!(
                                     "Invalid spec function entry for {}",
-                                    remapped_sym.display(self.symbol_pool())
+                                    remapped_sym.display_user(self.symbol_pool())
                                 ),
                             );
                             return Some(self.new_error_exp());
@@ -3009,7 +3009,7 @@ impl<'env, 'translator, 'module_translator> ExpTranslator<'env, 'translator, 'mo
                     &self.to_loc(&name_loc),
                     &format!(
                         "field `{}` not declared in struct `{}`",
-                        field_name.display(self.symbol_pool()),
+                        field_name.display_user(self.symbol_pool()),
                         struct_name.display(self.parent.parent.env)
                     ),
                 );
@@ -3023,7 +3023,7 @@ impl<'env, 'translator, 'module_translator> ExpTranslator<'env, 'translator, 'mo
                     "missing fields {}",
                     fields_not_covered
                         .iter()
-                        .map(|n| format!("`{}`", n.display(self.symbol_pool())))
+                        .map(|n| format!("`{}`", n.display_user(self.symbol_pool())))
                         .join(", ")
                 ),
             );

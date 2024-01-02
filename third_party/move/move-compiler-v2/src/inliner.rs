@@ -519,15 +519,14 @@ impl ShadowStack {
     {
         free_vars
             .into_iter()
-            .map(|var| (*var, ShadowStack::create_shadow_symbol(env, var)))
+            .map(|var| (*var, ShadowStack::create_shadow_symbol(env, *var)))
             .collect()
     }
 
     /// Returns a shadow symbol sym' for sym which should be distinct from any user-definable vars.
-    fn create_shadow_symbol(env: &GlobalEnv, sym: &Symbol) -> Symbol {
+    fn create_shadow_symbol(env: &GlobalEnv, sym: Symbol) -> Symbol {
         let pool = env.symbol_pool();
-        let shadow_name = (*pool.string(*sym)).clone() + "'";
-        pool.make(&shadow_name)
+        pool.make_unique(sym)
     }
 
     /// If a var is a free variable which is currently shadowed, then gets the shadow variable;

@@ -780,7 +780,7 @@ impl<'env, 'translator> ModuleBuilder<'env, 'translator> {
                 loc,
                 &format!(
                     "`{}` cannot have reference type",
-                    name.display(self.symbol_pool())
+                    name.display_user(self.symbol_pool())
                 ),
             )
         }
@@ -2039,7 +2039,7 @@ impl<'env, 'translator> ModuleBuilder<'env, 'translator> {
                         loc,
                         &format!(
                             "let bound `{}` propagated via schema inclusion is referring to post state",
-                            name.display(self.parent.env.symbol_pool())
+                            name.display_user(self.parent.env.symbol_pool())
                         ),
                         vec![label_cond, label_let],
                     );
@@ -2976,7 +2976,10 @@ impl<'env, 'translator> ModuleBuilder<'env, 'translator> {
                         } else {
                             et.error(
                                 &et.to_loc(&var_loc),
-                                &format!("`{}` not declared in schema", schema_sym.display(pool)),
+                                &format!(
+                                    "`{}` not declared in schema",
+                                    schema_sym.display_user(pool)
+                                ),
                             );
                             Type::Error
                         };
@@ -3007,7 +3010,7 @@ impl<'env, 'translator> ModuleBuilder<'env, 'translator> {
                     &entry.type_,
                     &format!(
                         "for `{}` included from schema",
-                        name.display(et.symbol_pool())
+                        name.display_user(et.symbol_pool())
                     ),
                 );
                 // Put into argument map.
@@ -3034,7 +3037,7 @@ impl<'env, 'translator> ModuleBuilder<'env, 'translator> {
                     loc,
                     &format!(
                         "`{}` cannot be matched to an existing name in inclusion context",
-                        name.display(pool)
+                        name.display_user(pool)
                     ),
                 );
             }
@@ -3119,7 +3122,7 @@ impl<'env, 'translator> ModuleBuilder<'env, 'translator> {
                                     loc.clone(),
                                     format!(
                                         "...variable {} defined here",
-                                        name.display(self.symbol_pool())
+                                        name.display_user(self.symbol_pool())
                                     )
                                     .to_owned(),
                                 ))

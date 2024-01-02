@@ -1748,7 +1748,7 @@ impl TypeUnificationError {
                         if ty != actual_ty {
                             Some(format!(
                                 "field `{}` has type `{}` instead of `{}`",
-                                n.display(display_context.env.symbol_pool()),
+                                n.display_user(display_context.env.symbol_pool()),
                                 ty.display(display_context),
                                 actual_ty.display(display_context)
                             ))
@@ -1777,7 +1777,7 @@ impl TypeUnificationError {
 
     fn print_fields(env: &GlobalEnv, names: impl Iterator<Item = Symbol>) -> String {
         names
-            .map(|n| format!("field `{}`", n.display(env.symbol_pool()),))
+            .map(|n| format!("field `{}`", n.display_user(env.symbol_pool()),))
             .join(" and ")
     }
 }
