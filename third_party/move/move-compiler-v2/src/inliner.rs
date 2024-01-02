@@ -1039,7 +1039,11 @@ impl<'env, 'rewriter> ExpRewriterFunctions for InlinedRewriter<'env, 'rewriter> 
 
     /// Record that the provided symbols have local definitions, so renaming should be done.
     /// Note that incoming vars are from a Pattern *after* renaming, so these are shadowed symbols.
-    fn rewrite_enter_scope<'a>(&mut self, vars: impl Iterator<Item = &'a (NodeId, Symbol)>) {
+    fn rewrite_enter_scope<'a>(
+        &mut self,
+        _id: NodeId,
+        vars: impl Iterator<Item = &'a (NodeId, Symbol)>,
+    ) {
         self.shadow_stack
             .enter_scope_after_renaming(vars.map(|(_, sym)| sym));
     }
@@ -1047,7 +1051,7 @@ impl<'env, 'rewriter> ExpRewriterFunctions for InlinedRewriter<'env, 'rewriter> 
     /// On exiting a scope defining some symbols shadowing lambda free vars, record that we have
     /// exited the scope so any occurrences of those free vars should be left alone (if there are
     /// not further shadowing scopes further out).
-    fn rewrite_exit_scope(&mut self) {
+    fn rewrite_exit_scope(&mut self, _id: NodeId) {
         self.shadow_stack.exit_scope();
     }
 
