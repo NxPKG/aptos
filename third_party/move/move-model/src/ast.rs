@@ -15,7 +15,7 @@ use crate::{
     ty::{ReferenceKind, Type, TypeDisplayContext},
 };
 use internment::LocalIntern;
-use itertools::Itertools;
+use itertools::{EitherOrBoth, Itertools};
 use move_binary_format::{
     file_format,
     file_format::{CodeOffset, Visibility},
@@ -1411,6 +1411,293 @@ impl Pattern {
             _ => {},
         }
     }
+
+    /// Walks `self` and `exp` in parallel to pair any `Pattern` variables with subexpressions.  Variables
+    /// which cannot be matched to a single subexpression map to `None` in the result.
+    pub fn vars_and_exprs(&self, exp: &Exp) -> Vec<(Symbol, Option<Exp>)> {
+        let mut result = vec![];
+        let _shape_matched = Self::collect_vars_exprs_from_expr(&mut result, self, Some(exp));
+        result
+    }
+
+    // Returns true if pattern matches exp
+    fn collect_vars_exprs_from_expr(
+        r: &mut Vec<(Symbol, Option<Exp>)>,
+        p: &Pattern,
+        opt_exp: Option<&Exp>,
+    ) -> bool {
+        use Pattern::*;
+        match p {
+            Struct(_nodeid, qsid, args) => {
+                if let Some(exp) = opt_exp {
+                    if let ExpData::Call(_, Operation::Pack(modid, sid), actuals) = exp.as_ref() {
+                        if *sid == qsid.id && *modid == qsid.module_id {
+                            Self::collect_vars_exprs_from_vector_exprs(r, args, actuals)
+                        } else {
+                            Self::collect_vars_exprs_from_vector_none(r, args);
+                            false
+                        }
+                    } else {
+                        Self::collect_vars_exprs_from_vector_none(r, args)
+                    }
+                } else {
+                    Self::collect_vars_exprs_from_vector_none(r, args)
+                }
+            },
+            Tuple(_, args) => {
+                if let Some(exp) = opt_exp {
+                    match exp.as_ref() {
+                        ExpData::Value(_, Value::Tuple(actuals)) => {
+                            Self::collect_vars_exprs_from_vector_values(r, args, actuals)
+                        },
+                        ExpData::Call(_, Operation::Tuple, actuals) => {
+                            Self::collect_vars_exprs_from_vector_exprs(r, args, actuals)
+                        },
+                        _ => Self::collect_vars_exprs_from_vector_none(r, args),
+                    }
+                } else {
+                    Self::collect_vars_exprs_from_vector_none(r, args)
+                }
+            },
+            Var(_, name) => match opt_exp {
+                Some(exp) => {
+                    r.push((*name, Some(exp.clone())));
+                    true
+                },
+                None => {
+                    r.push((*name, None));
+                    false
+                },
+            },
+            _ => true,
+        }
+    }
+
+    // Returns true if pattern matches value
+    fn collect_vars_exprs_from_value(
+        r: &mut Vec<(Symbol, Option<Exp>)>,
+        p: &Pattern,
+        opt_v: Option<&Value>,
+    ) -> bool {
+        use Pattern::*;
+        match p {
+            Struct(_nodeid, _qsid, args) => Self::collect_vars_exprs_from_vector_none(r, args),
+            Tuple(_, args) => {
+                if let Some(value) = opt_v {
+                    match value {
+                        Value::Tuple(actuals) => {
+                            Self::collect_vars_exprs_from_vector_values(r, args, actuals)
+                        },
+                        Value::Vector(actuals) => {
+                            Self::collect_vars_exprs_from_vector_values(r, args, actuals)
+                        },
+                        _ => {
+                            Self::collect_vars_exprs_from_vector_none(r, args);
+                            false
+                        },
+                    }
+                } else {
+                    Self::collect_vars_exprs_from_vector_none(r, args);
+                    false
+                }
+            },
+            Var(id, name) => {
+                if let Some(value) = opt_v {
+                    r.push((*name, Some(ExpData::Value(*id, value.clone()).into_exp())));
+                    true
+                } else {
+                    r.push((*name, None));
+                    false
+                }
+            },
+            _ => true,
+        }
+    }
+
+    /// Returns true unless there is a mismatch
+    fn collect_vars_exprs_from_vector_exprs(
+        r: &mut Vec<(Symbol, Option<Exp>)>,
+        pats: &[Pattern],
+        exprs: &[Exp],
+    ) -> bool {
+        pats.iter()
+            .zip_longest(exprs.iter())
+            .map(|pair| {
+                match pair {
+                    EitherOrBoth::Both(pat, expr) => {
+                        Self::collect_vars_exprs_from_expr(r, pat, Some(expr))
+                    },
+                    EitherOrBoth::Left(pat) => Self::collect_vars_exprs_from_expr(r, pat, None),
+                    EitherOrBoth::Right(_) => {
+                        false // there are extra exprs
+                    },
+                }
+            })
+            .fold(true, |a, b| a && b)
+    }
+
+    fn collect_vars_exprs_from_vector_values(
+        r: &mut Vec<(Symbol, Option<Exp>)>,
+        pats: &[Pattern],
+        vals: &[Value],
+    ) -> bool {
+        pats.iter()
+            .zip_longest(vals.iter())
+            .map(|pair| match pair {
+                EitherOrBoth::Both(pat, value) => {
+                    Self::collect_vars_exprs_from_value(r, pat, Some(value))
+                },
+                EitherOrBoth::Left(pat) => Self::collect_vars_exprs_from_value(r, pat, None),
+                EitherOrBoth::Right(_) => false,
+            })
+            .fold(true, |a, b| a && b)
+    }
+
+    fn collect_vars_exprs_from_vector_none(
+        r: &mut Vec<(Symbol, Option<Exp>)>,
+        pats: &[Pattern],
+    ) -> bool {
+        pats.iter()
+            .map(|pat| Self::collect_vars_exprs_from_value(r, pat, None))
+            .fold(true, |a, b| a && b)
+    }
+
+    pub fn remove_vars(self, vars: &BTreeSet<Symbol>) -> Pattern {
+        match self {
+            Pattern::Var(id, var) => {
+                if vars.contains(&var) {
+                    Pattern::Wildcard(id)
+                } else {
+                    Pattern::Var(id, var)
+                }
+            },
+            Pattern::Tuple(id, patvec) => Pattern::Tuple(
+                id,
+                patvec
+                    .into_iter()
+                    .map(|pat| pat.remove_vars(vars))
+                    .collect(),
+            ),
+            Pattern::Struct(id, qsid, patvec) => Pattern::Struct(
+                id,
+                qsid,
+                patvec
+                    .into_iter()
+                    .map(|pat| pat.remove_vars(vars))
+                    .collect(),
+            ),
+            Pattern::Error(..) | Pattern::Wildcard(..) => self,
+        }
+    }
+
+    pub fn replace_vars(&self, var_map: &BTreeMap<Symbol, Symbol>) -> Option<Pattern> {
+        match self {
+            Pattern::Var(id, var) => {
+                if let Some(new_var) = var_map.get(var) {
+                    if new_var != var {
+                        Some(Pattern::Var(*id, *new_var))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            },
+            Pattern::Tuple(_, patvec) | Pattern::Struct(_, _, patvec) => {
+                let pat_out: Vec<_> = patvec.iter().map(|pat| pat.replace_vars(var_map)).collect();
+                if pat_out.iter().any(|opt_pat| opt_pat.is_some()) {
+                    // Need to build a new vec.
+                    let new_vec: Vec<_> = std::iter::zip(pat_out, patvec)
+                        .map(|(opt_pat, pat)| match opt_pat {
+                            Some(new_pat) => new_pat,
+                            None => pat.clone(),
+                        })
+                        .collect();
+                    match self {
+                        Pattern::Tuple(id, _) => Some(Pattern::Tuple(*id, new_vec)),
+                        Pattern::Struct(id, qsid, _) => {
+                            Some(Pattern::Struct(*id, qsid.clone(), new_vec))
+                        },
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            },
+            Pattern::Error(..) | Pattern::Wildcard(..) => None,
+        }
+    }
+
+    /// Visits pattern, calling visitor on each sub-pattern. `visitor(false, ..)` will be called
+    /// before descending into recursive pattern, and `visitor(true, ..)` after. Notice we use one
+    /// function instead of two so a lambda can be passed which encapsulates mutable references.
+    pub fn visit_pre_post<F>(&self, visitor: &mut F)
+    where
+        F: FnMut(bool, &Pattern),
+    {
+        use Pattern::*;
+        visitor(false, self);
+        match self {
+            Var(..) | Wildcard(..) | Error(..) => {},
+            Tuple(_, patvec) => {
+                for pat in patvec {
+                    pat.visit_pre_post(visitor);
+                }
+            },
+            Struct(_, _, patvec) => {
+                for pat in patvec {
+                    pat.visit_pre_post(visitor);
+                }
+            },
+        };
+        visitor(true, self);
+    }
+
+    pub fn to_string<'a>(&self, env: &GlobalEnv, tctx: &'a TypeDisplayContext<'a>) -> String {
+        match self {
+            Pattern::Var(id, name) => {
+                let ty = env.get_node_type(*id);
+                format!("{}: {}", name.display(env.symbol_pool()), ty.display(tctx))
+            },
+            Pattern::Tuple(_, args) => format!(
+                "({})",
+                args.iter().map(|pat| pat.to_string(env, tctx)).join(", ")
+            ),
+            Pattern::Struct(_, struct_id, args) => {
+                let inst_str = if !struct_id.inst.is_empty() {
+                    format!(
+                        "<{}>",
+                        struct_id.inst.iter().map(|ty| ty.display(tctx)).join(", ")
+                    )
+                } else {
+                    "".to_string()
+                };
+                let struct_env = env.get_struct(struct_id.to_qualified_id());
+                let field_names = struct_env.get_fields().map(|f| f.get_name());
+                let args_str = args
+                    .iter()
+                    .zip(field_names)
+                    .map(|(pat, sym)| {
+                        let field_name = env.symbol_pool().string(sym);
+                        let pattern_str = pat.to_string(env, tctx);
+                        if &pattern_str != field_name.as_ref() {
+                            format!("{}: {}", field_name.as_ref(), pat.to_string(env, tctx))
+                        } else {
+                            pattern_str
+                        }
+                    })
+                    .join(", ");
+                format!(
+                    "{}{}{{ {} }}",
+                    struct_env.get_full_name_str(),
+                    inst_str,
+                    args_str
+                )
+            },
+            Pattern::Wildcard(_) => "_".to_string(),
+            Pattern::Error(_) => "<error>".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
@@ -1517,6 +1804,54 @@ impl Operation {
         )
     }
 
+    /// Determines whether this op is side-effect free.
+    pub fn is_side_effect_free(&self) -> bool {
+        use Operation::*;
+        matches!(
+            self,
+            Pack(..)
+                | Tuple
+                | Select(..)
+                | Result(..)
+                // | Index // probably could be OOB
+                // | Slice // probably could be OOB
+                // | Range
+                // | Implies
+                // | Iff
+                | Identical
+                // | Add   // can overflow
+                // | Sub   // can overflow
+                // | Mul   // can overflow
+                // | Mod   // can overflow
+                // | Div   // can overflow
+                | BitOr
+                | BitAnd
+                | Xor
+                // | Shl   // can overflow
+                // | Shr   // can overflow
+                | And
+                | Or
+                | Eq
+                | Neq
+                | Lt
+                | Gt
+                | Le
+                | Ge
+                | Copy
+                | Not
+                // | Cast  // can overflow
+                | Exists(..)
+                | Deref
+                | Vector
+                | Len
+                | TypeValue
+                | TypeDomain
+                | ResourceDomain
+                | CanModify
+                | NoOp
+        )
+    }
+
     /// Whether the operation allows to take reference parameters instead of values. This applies
     /// currently to equality which can be used on `(T, T)`, `(T, &T)`, etc.
     pub fn allows_ref_param_for_value(&self) -> bool {
@@ -1578,6 +1913,31 @@ impl ExpData {
                 _ => {},
             }
             true // keep going
+        };
+        self.visit_pre_order(&mut visitor);
+        is_pure
+    }
+
+    /// Checks whether the expression is side-effect-free, i.e. modifies no variables and
+    /// calls no user functions or functions that may have effects.
+    pub fn is_side_effect_free(&self) -> bool {
+        let mut is_pure = true;
+        let mut visitor = |e: &ExpData| {
+            use ExpData::*;
+            match e {
+                Call(_, oper, _) => {
+                    if !oper.is_side_effect_free() {
+                        is_pure = false;
+                        return false;
+                    }
+                },
+                Return(..) | Loop(..) | LoopCont(..) | Assign(..) | Mutate(..) => {
+                    is_pure = false;
+                    return false;
+                },
+                _ => {},
+            }
+            true
         };
         self.visit_pre_order(&mut visitor);
         is_pure
