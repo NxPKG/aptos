@@ -268,13 +268,13 @@ impl<'env> ConstantFolder<'env> {
                         // result_pty should be same size as arg0
                         let arg0_size = Self::ptype_num_bits_bigint(result_pty);
                         self.binop_num("shl (<<)", Self::checked_shl, id, result_pty, val0, val1)
-                            .filter(|_r| val1 <= &arg0_size) // shift fails if val1 > bits in val0
+                            .filter(|_r| val1 < &arg0_size) // shift fails if val1 >= bits in val0
                     },
                     O::Shr => {
                         // result_pty should be same size as arg0
                         let arg0_size = Self::ptype_num_bits_bigint(result_pty);
                         self.binop_num("shr (>>)", Self::checked_shr, id, result_pty, val0, val1)
-                            .filter(|_r| val1 <= &arg0_size) // shift fails if val1 > bits in val0
+                            .filter(|_r| val1 < &arg0_size) // shift fails if val1 >= bits in val0
                     },
                     O::BitAnd => Some(V(id, Number(val0.bitand(val1))).into_exp()),
                     O::BitOr => Some(V(id, Number(val0.bitor(val1))).into_exp()),
