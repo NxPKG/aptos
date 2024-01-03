@@ -2,6 +2,7 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+pub mod ast_simplifier;
 mod bytecode_generator;
 mod experiments;
 mod file_format_generator;
@@ -67,9 +68,22 @@ pub fn run_move_compiler(
         eprintln!("After inlining, GlobalEnv={}", env.dump_env());
     }
 
+    // Run inlining.  No code elimination for now.
+    ast_simplifier::run_simplifier(&mut env, false);
+    check_errors(&env, error_writer, "simplifier")?;
+
+    if options.debug {
+        eprintln!("After simplifier, GlobalEnv={}", env.dump_env());
+    }
+
     // Run code generator
     let mut targets = run_bytecode_gen(&env);
     check_errors(&env, error_writer, "code generation errors")?;
+
+    if options.debug {
+        eprintln!("After bytecode_gen, GlobalEnv={}", env.dump_env());
+    }
+
     // Run transformation pipeline
     let pipeline = bytecode_pipeline(&env);
     if options.debug || options.dump_bytecode {

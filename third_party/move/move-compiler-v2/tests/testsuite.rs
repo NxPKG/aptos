@@ -7,7 +7,7 @@ use move_binary_format::binary_views::BinaryIndexedView;
 use move_command_line_common::files::FileHash;
 use move_compiler::compiled_unit::CompiledUnit;
 use move_compiler_v2::{
-    function_checker, inliner,
+    ast_simplifier, function_checker, inliner,
     pipeline::{
         ability_checker::AbilityChecker, explicit_drop::ExplicitDrop,
         livevar_analysis_processor::LiveVarAnalysisProcessor,
@@ -254,10 +254,19 @@ impl TestConfig {
             // Run inlining.
             inliner::run_inlining(&mut env);
             ok = Self::check_diags(&mut test_output.borrow_mut(), &env);
-
-            if ok && options.debug {
+        }
+        if ok {
+            if options.debug {
                 eprint!("After inlining, GlobalEnv={}", env.dump_env());
             }
+
+            // Run simplifier.  No code elimination for now.
+            ast_simplifier::run_simplifier(&mut env, false);
+            ok = Self::check_diags(&mut test_output.borrow_mut(), &env);
+        }
+
+        if ok && options.debug {
+            eprint!("After simplifier, GlobalEnv={}", env.dump_env());
         }
 
         if ok && self.dump_ast {
