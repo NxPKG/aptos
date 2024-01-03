@@ -44,6 +44,7 @@ pub struct ConstantFolder<'env> {
     env: &'env GlobalEnv,
     type_display_ctxt: TypeDisplayContext<'env>,
     in_constant_declaration: bool,
+    error_status: bool, // saw an error already in the current expression
 }
 
 impl<'env> ConstantFolder<'env> {
@@ -53,15 +54,28 @@ impl<'env> ConstantFolder<'env> {
         Self {
             env,
             type_display_ctxt: env.get_type_display_ctx(),
+            error_status: false,
             in_constant_declaration,
         }
+    }
+
+    // clear folder error status and return old status
+    fn clear_error_status(&mut self) -> bool {
+        let old_value = self.error_status;
+        self.error_status = false;
+        old_value
+    }
+
+    // merge `old_status` with folder error status.
+    fn merge_old_error_status(&mut self, old_status: bool) {
+        self.error_status = self.error_status || old_status;
     }
 
     fn constant_folding_error<T, F>(&mut self, id: NodeId, error_msg_generator: F) -> Option<T>
     where
         F: FnOnce(&mut Self) -> String,
     {
-        if self.in_constant_declaration {
+        if self.in_constant_declaration && !self.error_status {
             let loc = self.env.get_node_loc(id);
             self.env.error(
                 &loc,
@@ -69,8 +83,9 @@ impl<'env> ConstantFolder<'env> {
                     "Invalid expression in `const`. {}",
                     error_msg_generator(self),
                 ),
-            )
-        }
+            );
+            self.error_status = true;
+        };
         None
     }
 
@@ -400,7 +415,9 @@ impl<'env> ExpRewriterFunctions for ConstantFolder<'env> {
     }
 
     fn rewrite_exp(&mut self, exp: Exp) -> Exp {
+        let saved_error_status = self.clear_error_status();
         let result = self.rewrite_exp_descent(exp);
+        self.merge_old_error_status(saved_error_status);
         match result.as_ref() {
             ExpData::Sequence(_, es) => {
                 // If this is valid for constant, then all expressions are constants,
