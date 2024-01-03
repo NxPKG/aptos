@@ -7,7 +7,7 @@
 // which are `ExpData::Value` expressions with appropriate types set (in the `GlobalEnv`) for
 // `NodeId` values.
 //
-// Example usage:
+// Example usage for constant declarations:
 //    // Contextual code to show how types might be filled in:
 //    let mut et = ExpTranslator::new(...);
 //    let exp = et.translate_exp(...).into_exp();
@@ -15,7 +15,7 @@
 //    let mut reasons = Vec::new();
 //    if exp.is_valid_for_constant(&global_env, &mut reasons) {
 //        // This is the actual constant folding part:
-//        let constant_folder = ConstantFolder::new(&global_env);
+//        let constant_folder = ConstantFolder::new(&global_env, true);
 //        let rewritten: Exp = constant_folder.rewrite_exp(exp);
 //    }
 
@@ -43,26 +43,34 @@ use num::{BigInt, ToPrimitive, Zero};
 pub struct ConstantFolder<'env> {
     env: &'env GlobalEnv,
     type_display_ctxt: TypeDisplayContext<'env>,
+    in_constant_declaration: bool,
 }
 
 impl<'env> ConstantFolder<'env> {
     /// Set the `GlobalEnv` to use.  This is used to obtain code `Loc` for diagnostics,
     /// for obtaining expression and argument types, and to generate diagnostics..
-    pub fn new(env: &'env GlobalEnv) -> Self {
+    pub fn new(env: &'env GlobalEnv, in_constant_declaration: bool) -> Self {
         Self {
             env,
             type_display_ctxt: env.get_type_display_ctx(),
+            in_constant_declaration,
         }
     }
 
-    fn constant_folding_error<T>(&mut self, id: NodeId, error_msg: &str) -> Option<T> {
-        let loc = self.env.get_node_loc(id);
-        // TODO: once Wolfgang's diag fix is in, change this to 2-part diag with primary
-        //  "cannot compute constant value"
-        self.env.error(
-            &loc,
-            &format!("Invalid expression in `const`. {}", error_msg),
-        );
+    fn constant_folding_error<T, F>(&mut self, id: NodeId, error_msg_generator: F) -> Option<T>
+    where
+        F: FnOnce(&mut Self) -> String,
+    {
+        if self.in_constant_declaration {
+            let loc = self.env.get_node_loc(id);
+            self.env.error(
+                &loc,
+                &format!(
+                    "Invalid expression in `const`. {}",
+                    error_msg_generator(self),
+                ),
+            )
+        }
         None
     }
 
@@ -110,18 +118,20 @@ impl<'env> ConstantFolder<'env> {
             let result_type = self.env.get_node_type(id);
             match (oper, val0, &arg0_type, &result_type) {
                 (O::Not, Bool(b), T(PTBool), T(PTBool)) => Some(V(id, Bool(!b)).into_exp()),
-                (O::Not, _, T(PTBool), T(PTBool)) => {
-                    self.constant_folding_error(id, "Argument to ! is not a constant")
-                },
-                (O::Not, _, _, _) => self.constant_folding_error(
-                    id,
-                    &format!(
-                        "Expected bool types for argument \
-                                  and result of operator `Not` (`!`) but found {} and {}",
-                        self.display_type(&arg0_type),
-                        self.display_type(&result_type)
+                (O::Not, _, T(PTBool), T(PTBool)) =>
+                    self.constant_folding_error(
+                        id,
+                        |_| "Argument to ! is not a constant".to_owned(),
                     ),
-                ),
+                (O::Not, _, _, _) =>
+                    self.constant_folding_error(id,
+                                                |aself: &mut Self|
+                                                format!(
+                                                    "Expected bool types for argument \
+                                                     and result of operator `Not` (`!`) but found {} and {}",
+                                                    aself.display_type(&arg0_type),
+                                                    aself.display_type(&result_type)
+                                                )),
                 (O::Cast, Number(val0_bigint), T(_arg0_pty), T(result_pty)) => {
                     if arg0_type.is_number() && result_type.is_number() {
                         Self::type_bound_bigint(val0_bigint, result_pty)
@@ -129,37 +139,35 @@ impl<'env> ConstantFolder<'env> {
                             .or_else(|| {
                                 self.constant_folding_error(
                                     id,
-                                    &format!(
+                                    |aself: &mut Self| format!(
                                         "Cast argument value {} out of range for type {}",
                                         val0_bigint,
-                                        self.display_type(&result_type),
-                                    ),
-                                )
+                                        aself.display_type(&result_type)))
                             })
                     } else {
                         self.constant_folding_error(
                             id,
-                            &format!(
+                            |aself: &mut Self| format!(
                                 "Expected numeric types for argument and result \
-                                      of cast (`as`) but found {} and {}",
-                                self.display_type(&arg0_type),
-                                self.display_type(&result_type)
+                                 of cast (`as`) but found {} and {}",
+                                aself.display_type(&arg0_type),
+                                aself.display_type(&result_type)
                             ),
                         )
                     }
                 },
-                (O::Cast, _, _, _) => self.constant_folding_error(
-                    id,
+                (O::Cast, _, _, _) => self.constant_folding_error(id, |_| {
                     "Argument to cast operation (`as`) is not foldable \
-                     to a numeric constant.",
-                ),
-                _ => self.constant_folding_error(id, "Unary expression not foldable to constant"),
+                     to a numeric constant."
+                        .to_owned()
+                }),
+                _ => self.constant_folding_error(id, |_|
+                                                 "Unary expression not foldable to constant".to_owned()),
             }
         } else {
-            self.constant_folding_error(
-                id,
-                "Parameter to unary expression not foldable to constant",
-            )
+            self.constant_folding_error(id, |_| {
+                "Parameter to unary expression not foldable to constant".to_owned()
+            })
         }
     }
 
@@ -179,14 +187,14 @@ impl<'env> ConstantFolder<'env> {
             .and_then(|val| Self::type_bound_bigint(&val, result_pty))
             .map(|val| ExpData::Value(id, Value::Number(val)).into_exp())
             .or_else(|| {
-                self.constant_folding_error(
-                    id,
-                    &format!(
+                self.constant_folding_error(id, |aself: &mut Self| {
+                    format!(
                         "Operator {} result value out of range for {}",
                         binop_name,
-                        self.display_type(&Type::Primitive(*result_pty)),
-                    ),
-                )
+                        aself.display_type(&Type::Primitive(*result_pty)),
+                    )
+                    .to_owned()
+                })
             })
     }
 
@@ -277,10 +285,10 @@ impl<'env> ConstantFolder<'env> {
                     O::Ge => Some(V(id, Bool(val0 >= val1)).into_exp()),
                     O::Eq => Some(V(id, Bool(val0 == val1)).into_exp()),
                     O::Neq => Some(V(id, Bool(val0 != val1)).into_exp()),
-                    _ => self.constant_folding_error(
-                        id,
-                        "Binary expresison with numeric parameters not foldable to constant",
-                    ),
+                    _ => self.constant_folding_error(id, |_| {
+                        "Binary expresison with numeric parameters not foldable to constant"
+                            .to_owned()
+                    }),
                 }
             } else if let (Bool(val0), Bool(val1), T(PTBool)) = (&val0, &val1, &result_type) {
                 // Binops with Boolean arguments and result.
@@ -290,25 +298,26 @@ impl<'env> ConstantFolder<'env> {
                     O::Eq => Some(V(id, Bool(*val0 == *val1)).into_exp()),
                     O::Neq => Some(V(id, Bool(*val0 != *val1)).into_exp()),
                     _ => {
-                        return self.constant_folding_error(
-                            id,
+                        return self.constant_folding_error(id, |_| {
                             "Binary expression with boolean parameters and result \
-                             not foldable to constant",
-                        )
+                             not foldable to constant"
+                                .to_owned()
+                        })
                     },
                 }
             } else {
                 match oper {
                     O::Eq => Some(V(id, Bool(val0 == val1)).into_exp()),
                     O::Neq => Some(V(id, Bool(val0 != val1)).into_exp()),
-                    _ => self.constant_folding_error(id, "Unknown binary expression in `const`"),
+                    _ => self.constant_folding_error(id, |_| {
+                        "Unknown binary expression in `const`".to_owned()
+                    }),
                 }
             }
         } else {
-            self.constant_folding_error(
-                id,
-                "Binary expression arguments not both foldable to constant",
-            )
+            self.constant_folding_error(id, |_| {
+                "Binary expression arguments not both foldable to constant".to_owned()
+            })
         }
     }
 
@@ -352,12 +361,14 @@ impl<'env> ConstantFolder<'env> {
         if reasons.is_empty() {
             Some(ExpData::Value(id, constructor(vec_result)).into_exp())
         } else {
-            self.env.diag_with_labels(
-                Severity::Error,
-                &self.env.get_node_loc(id),
-                &format!("{} operand list not constant", oper_name),
-                reasons,
-            );
+            if self.in_constant_declaration {
+                self.env.diag_with_labels(
+                    Severity::Error,
+                    &self.env.get_node_loc(id),
+                    &format!("{} operand list not constant", oper_name),
+                    reasons,
+                );
+            };
             None
         }
     }
@@ -366,9 +377,17 @@ impl<'env> ConstantFolder<'env> {
 impl<'env> ExpRewriterFunctions for ConstantFolder<'env> {
     fn rewrite_call(&mut self, id: NodeId, oper: &Operation, args: &[Exp]) -> Option<Exp> {
         if matches!(oper, Operation::Tuple) {
-            self.fold_vector_exp(id, Value::Tuple, "tuple", args)
+            if self.in_constant_declaration {
+                self.fold_vector_exp(id, Value::Tuple, "tuple", args)
+            } else {
+                None
+            }
         } else if matches!(oper, Operation::Vector) {
-            self.fold_vector_exp(id, Value::Vector, "vector", args)
+            if self.in_constant_declaration {
+                self.fold_vector_exp(id, Value::Vector, "vector", args)
+            } else {
+                None
+            }
         } else if args.len() == 1 {
             // unary op
             self.fold_unary_exp(id, oper, &args[0])
