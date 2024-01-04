@@ -1533,7 +1533,7 @@ impl Pattern {
                     },
                 }
             })
-            .fold(true, |a, b| a && b)
+            .all(|b| b)
     }
 
     fn collect_vars_exprs_from_vector_values(
@@ -1550,7 +1550,7 @@ impl Pattern {
                 EitherOrBoth::Left(pat) => Self::collect_vars_exprs_from_value(r, pat, None),
                 EitherOrBoth::Right(_) => false,
             })
-            .fold(true, |a, b| a && b)
+            .all(|b| b)
     }
 
     fn collect_vars_exprs_from_vector_none(
@@ -1559,7 +1559,7 @@ impl Pattern {
     ) -> bool {
         pats.iter()
             .map(|pat| Self::collect_vars_exprs_from_value(r, pat, None))
-            .fold(true, |a, b| a && b)
+            .all(|b| b)
     }
 
     pub fn remove_vars(self, vars: &BTreeSet<Symbol>) -> Pattern {

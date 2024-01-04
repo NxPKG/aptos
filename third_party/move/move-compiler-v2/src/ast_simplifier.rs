@@ -552,7 +552,7 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
         self.constant_folder
             .rewrite_call(id, oper, args)
             .map(|exp| self.expand_tuple(exp))
-            .or_else(|| {
+            .or({
                 // Not completely a constant.
                 // TODO(BUGBUG): consider matching some expressions,
                 // e.g., ((x + c1) + c2) -> (x + (c1 + c2))
@@ -580,26 +580,24 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
                 // All elements other than the last are side-effect free.
                 // (Note that this case includes a singleton sequence.)
                 seq.iter().next_back().cloned()
+            } else if side_effect_free_elts
+                .iter()
+                .any(|elt_is_side_effect_free| *elt_is_side_effect_free)
+            {
+                // At least one element can be removed.
+                side_effect_free_elts.push(false);
+                let new_vec: Vec<_> = zip(seq, side_effect_free_elts)
+                    .filter_map(|(elt, is_side_effect_free)| {
+                        if !is_side_effect_free {
+                            Some(elt.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                Some(ExpData::Sequence(id, new_vec).into_exp())
             } else {
-                if side_effect_free_elts
-                    .iter()
-                    .any(|elt_is_side_effect_free| *elt_is_side_effect_free)
-                {
-                    // At least one element can be removed.
-                    side_effect_free_elts.push(false);
-                    let new_vec: Vec<_> = zip(seq, side_effect_free_elts)
-                        .filter_map(|(elt, is_side_effect_free)| {
-                            if !is_side_effect_free {
-                                Some(elt.clone())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-                    Some(ExpData::Sequence(id, new_vec).into_exp())
-                } else {
-                    None
-                }
+                None
             }
         } else {
             None
