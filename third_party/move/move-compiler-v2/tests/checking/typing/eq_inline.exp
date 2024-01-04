@@ -1,10 +1,7 @@
 // ---- Model Dump
 module 0x42::m {
     private fun g() {
-        {
-          let ();
-          Tuple()
-        };
+        Tuple();
         Tuple()
     }
     spec fun $foo(f: |&u64|()) {

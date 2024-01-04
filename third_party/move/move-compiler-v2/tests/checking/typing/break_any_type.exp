@@ -9,21 +9,13 @@ module 0x8675309::M {
     }
     private fun t0() {
         loop {
-          if true {
-            Add<u64>(0, break);
-            Tuple()
-          } else {
-            break
-          }
+          Add<u64>(0, break);
+          Tuple()
         }
     }
     private fun t1() {
         loop {
-          if true {
-            M::foo(break)
-          } else {
-            break
-          }
+          M::foo(break)
         }
     }
     spec fun $foo(c: M::Coin);

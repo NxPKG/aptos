@@ -16,12 +16,12 @@ module 0x8675309::M {
             f1;
             f2;
             {
-              let f1: M::Box<u64>;
+              let f1$0$: M::Box<u64>;
               {
-                let f2: M::Box<u64>;
-                M::Box<M::Box<u64>>{ f1: f1: M::Box<u64>, f2: f2: M::Box<u64> } = M::new<M::Box<u64>>();
-                f1;
-                f2;
+                let f2$0$: M::Box<u64>;
+                M::Box<M::Box<u64>>{ f1: f1$0$: M::Box<u64>, f2: f2$0$: M::Box<u64> } = M::new<M::Box<u64>>();
+                f1$0$;
+                f2$0$;
                 Tuple()
               }
             }

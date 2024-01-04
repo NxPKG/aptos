@@ -13,10 +13,7 @@ module 0x42::m {
 module 0x42::n {
     use 0x42::m; // resolved as: 0x42::m
     public fun test() {
-        if Eq<u64>({
-          let ();
-          m::bar()
-        }, 42) {
+        if Eq<u64>(m::bar(), 42) {
           Tuple()
         } else {
           Abort(1)

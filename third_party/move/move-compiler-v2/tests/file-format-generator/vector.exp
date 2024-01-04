@@ -83,20 +83,18 @@ fun vector::test_fold() {
      var $t12: bool
      var $t13: &vector<u64>
      var $t14: u64
-     var $t15: u64
-     var $t16: &mut vector<u64>
-     var $t17: u64
+     var $t15: &mut vector<u64>
+     var $t16: u64
+     var $t17: bool
      var $t18: u64
-     var $t19: bool
-     var $t20: u64
-     var $t21: u64
+     var $t19: u64
   0: $t2 := 1
   1: $t1 := vector($t2)
   2: $t0 := infer($t1)
   3: $t5 := infer($t0)
-  4: $t7 := 0
-  5: $t6 := infer($t7)
-  6: $t8 := infer($t6)
+  4: $t6 := 0
+  5: $t8 := 0
+  6: $t7 := infer($t8)
   7: $t9 := infer($t5)
   8: $t10 := borrow_local($t9)
   9: vector::reverse<u64>($t10)
@@ -104,32 +102,30 @@ fun vector::test_fold() {
  11: $t13 := borrow_local($t9)
  12: $t12 := vector::is_empty<u64>($t13)
  13: $t11 := !($t12)
- 14: if ($t11) goto 15 else goto 23
+ 14: if ($t11) goto 15 else goto 21
  15: label L2
- 16: $t16 := borrow_local($t9)
- 17: $t15 := vector::pop_back<u64>($t16)
- 18: $t14 := infer($t15)
- 19: $t17 := infer($t14)
- 20: $t18 := 0
- 21: $t8 := infer($t18)
+ 16: $t15 := borrow_local($t9)
+ 17: $t14 := vector::pop_back<u64>($t15)
+ 18: $t16 := 0
+ 19: $t7 := infer($t16)
+ 20: goto 23
+ 21: label L3
  22: goto 25
- 23: label L3
- 24: goto 27
- 25: label L4
- 26: goto 10
- 27: label L1
- 28: $t4 := infer($t8)
- 29: $t3 := infer($t4)
- 30: $t20 := 0
- 31: $t19 := ==($t3, $t20)
- 32: if ($t19) goto 33 else goto 35
- 33: label L5
- 34: goto 38
- 35: label L6
- 36: $t21 := 0
- 37: abort($t21)
- 38: label L7
- 39: return ()
+ 23: label L4
+ 24: goto 10
+ 25: label L1
+ 26: $t4 := infer($t7)
+ 27: $t3 := infer($t4)
+ 28: $t18 := 0
+ 29: $t17 := ==($t3, $t18)
+ 30: if ($t17) goto 31 else goto 33
+ 31: label L5
+ 32: goto 36
+ 33: label L6
+ 34: $t19 := 0
+ 35: abort($t19)
+ 36: label L7
+ 37: return ()
 }
 
 ============ after LiveVarAnalysisProcessor: ================
@@ -258,13 +254,11 @@ fun vector::test_fold() {
      var $t12: bool
      var $t13: &vector<u64>
      var $t14: u64
-     var $t15: u64
-     var $t16: &mut vector<u64>
-     var $t17: u64
+     var $t15: &mut vector<u64>
+     var $t16: u64
+     var $t17: bool
      var $t18: u64
-     var $t19: bool
-     var $t20: u64
-     var $t21: u64
+     var $t19: u64
      # live vars:
   0: $t2 := 1
      # live vars: $t2
@@ -274,77 +268,73 @@ fun vector::test_fold() {
      # live vars: $t0
   3: $t5 := copy($t0)
      # live vars: $t5
-  4: $t7 := 0
-     # live vars: $t5, $t7
-  5: $t6 := copy($t7)
-     # live vars: $t5, $t6
-  6: $t8 := copy($t6)
+  4: $t6 := 0
+     # live vars: $t5
+  5: $t8 := 0
      # live vars: $t5, $t8
+  6: $t7 := copy($t8)
+     # live vars: $t5, $t7
   7: $t9 := copy($t5)
-     # live vars: $t8, $t9
+     # live vars: $t7, $t9
   8: $t10 := borrow_local($t9)
-     # live vars: $t8, $t9, $t10
+     # live vars: $t7, $t9, $t10
   9: vector::reverse<u64>($t10)
-     # live vars: $t8, $t9
+     # live vars: $t7, $t9
  10: label L0
-     # live vars: $t8, $t9
+     # live vars: $t7, $t9
  11: $t13 := borrow_local($t9)
-     # live vars: $t8, $t9, $t13
+     # live vars: $t7, $t9, $t13
  12: $t12 := vector::is_empty<u64>($t13)
-     # live vars: $t8, $t9, $t12
+     # live vars: $t7, $t9, $t12
  13: $t11 := !($t12)
-     # live vars: $t8, $t9, $t11
- 14: if ($t11) goto 15 else goto 23
+     # live vars: $t7, $t9, $t11
+ 14: if ($t11) goto 15 else goto 21
      # live vars: $t9
  15: label L2
      # live vars: $t9
- 16: $t16 := borrow_local($t9)
-     # live vars: $t9, $t16
- 17: $t15 := vector::pop_back<u64>($t16)
+ 16: $t15 := borrow_local($t9)
      # live vars: $t9, $t15
- 18: $t14 := copy($t15)
-     # live vars: $t9, $t14
- 19: $t17 := copy($t14)
+ 17: $t14 := vector::pop_back<u64>($t15)
      # live vars: $t9
- 20: $t18 := 0
-     # live vars: $t9, $t18
- 21: $t8 := copy($t18)
-     # live vars: $t8, $t9
+ 18: $t16 := 0
+     # live vars: $t9, $t16
+ 19: $t7 := copy($t16)
+     # live vars: $t7, $t9
+ 20: goto 23
+     # live vars: $t7
+ 21: label L3
+     # live vars: $t7
  22: goto 25
-     # live vars: $t8
- 23: label L3
-     # live vars: $t8
- 24: goto 27
-     # live vars: $t8, $t9
- 25: label L4
-     # live vars: $t8, $t9
- 26: goto 10
-     # live vars: $t8
- 27: label L1
-     # live vars: $t8
- 28: $t4 := copy($t8)
+     # live vars: $t7, $t9
+ 23: label L4
+     # live vars: $t7, $t9
+ 24: goto 10
+     # live vars: $t7
+ 25: label L1
+     # live vars: $t7
+ 26: $t4 := copy($t7)
      # live vars: $t4
- 29: $t3 := copy($t4)
+ 27: $t3 := copy($t4)
      # live vars: $t3
- 30: $t20 := 0
-     # live vars: $t3, $t20
- 31: $t19 := ==($t3, $t20)
+ 28: $t18 := 0
+     # live vars: $t3, $t18
+ 29: $t17 := ==($t3, $t18)
+     # live vars: $t17
+ 30: if ($t17) goto 31 else goto 33
+     # live vars:
+ 31: label L5
+     # live vars:
+ 32: goto 36
+     # live vars:
+ 33: label L6
+     # live vars:
+ 34: $t19 := 0
      # live vars: $t19
- 32: if ($t19) goto 33 else goto 35
+ 35: abort($t19)
      # live vars:
- 33: label L5
+ 36: label L7
      # live vars:
- 34: goto 38
-     # live vars:
- 35: label L6
-     # live vars:
- 36: $t21 := 0
-     # live vars: $t21
- 37: abort($t21)
-     # live vars:
- 38: label L7
-     # live vars:
- 39: return ()
+ 37: return ()
 }
 
 
@@ -429,13 +419,10 @@ test_fold() /* def_idx: 2 */ {
 L0:	loc0: vector<u64>
 L1:	loc1: vector<u64>
 L2:	loc2: u64
-L3:	loc3: u64
-L4:	loc4: vector<u64>
+L3:	loc3: vector<u64>
+L4:	loc4: u64
 L5:	loc5: u64
 L6:	loc6: u64
-L7:	loc7: u64
-L8:	loc8: u64
-L9:	loc9: u64
 B0:
 	0: LdU64(1)
 	1: VecPack(5, 1)
@@ -443,48 +430,46 @@ B0:
 	3: CopyLoc[0](loc0: vector<u64>)
 	4: StLoc[1](loc1: vector<u64>)
 	5: LdU64(0)
-	6: StLoc[2](loc2: u64)
-	7: CopyLoc[2](loc2: u64)
-	8: StLoc[3](loc3: u64)
-	9: CopyLoc[1](loc1: vector<u64>)
-	10: StLoc[4](loc4: vector<u64>)
-	11: MutBorrowLoc[4](loc4: vector<u64>)
-	12: Call 1vector::reverse<u64>(&mut vector<u64>)
+	6: LdU64(0)
+	7: StLoc[2](loc2: u64)
+	8: CopyLoc[1](loc1: vector<u64>)
+	9: StLoc[3](loc3: vector<u64>)
+	10: MutBorrowLoc[3](loc3: vector<u64>)
+	11: Call 1vector::reverse<u64>(&mut vector<u64>)
+	12: Pop
 B1:
-	13: ImmBorrowLoc[4](loc4: vector<u64>)
+	13: ImmBorrowLoc[3](loc3: vector<u64>)
 	14: Call 1vector::is_empty<u64>(&vector<u64>): bool
 	15: Not
-	16: BrFalse(25)
+	16: BrFalse(23)
 B2:
-	17: MutBorrowLoc[4](loc4: vector<u64>)
+	17: MutBorrowLoc[3](loc3: vector<u64>)
 	18: VecPopBack(5)
-	19: StLoc[5](loc5: u64)
-	20: CopyLoc[5](loc5: u64)
-	21: StLoc[6](loc6: u64)
-	22: LdU64(0)
-	23: StLoc[3](loc3: u64)
-	24: Branch(26)
+	19: LdU64(0)
+	20: StLoc[2](loc2: u64)
+	21: Pop
+	22: Branch(24)
 B3:
-	25: Branch(27)
+	23: Branch(25)
 B4:
-	26: Branch(13)
+	24: Branch(13)
 B5:
-	27: CopyLoc[3](loc3: u64)
-	28: StLoc[7](loc7: u64)
-	29: CopyLoc[7](loc7: u64)
-	30: StLoc[8](loc8: u64)
-	31: LdU64(0)
-	32: StLoc[9](loc9: u64)
-	33: MoveLoc[8](loc8: u64)
-	34: MoveLoc[9](loc9: u64)
-	35: Eq
-	36: BrFalse(38)
+	25: CopyLoc[2](loc2: u64)
+	26: StLoc[4](loc4: u64)
+	27: CopyLoc[4](loc4: u64)
+	28: StLoc[5](loc5: u64)
+	29: LdU64(0)
+	30: StLoc[6](loc6: u64)
+	31: MoveLoc[5](loc5: u64)
+	32: MoveLoc[6](loc6: u64)
+	33: Eq
+	34: BrFalse(36)
 B6:
-	37: Branch(40)
+	35: Branch(38)
 B7:
-	38: LdU64(0)
-	39: Abort
+	36: LdU64(0)
+	37: Abort
 B8:
-	40: Ret
+	38: Ret
 }
 }

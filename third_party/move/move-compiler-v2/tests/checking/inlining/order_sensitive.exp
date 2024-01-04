@@ -31,26 +31,26 @@ module 0x42::OrderSensitiveTest3 {
             Add<u64>(Mul<u64>(a, b), 5)
           }), b);
           Add<u64>(Add<u64>({
-            let (a: u64, b: u64) = Tuple({
-              let (a: u64, b: u64) = Tuple(a, b);
-              Add<u64>(Mul<u64>(a, b), 3)
+            let (a$2$: u64, b$2$: u64) = Tuple({
+              let (a$0$: u64, b$0$: u64) = Tuple(a, b);
+              Add<u64>(Mul<u64>(a$0$, b$0$), 3)
             }, {
-              let (a: u64, b: u64) = Tuple(a, b);
-              Add<u64>(Mul<u64>(a, b), 4)
+              let (a$1$: u64, b$1$: u64) = Tuple(a, b);
+              Add<u64>(Mul<u64>(a$1$, b$1$), 4)
             });
             Add<u64>({
-              let (a: u64, b: u64) = Tuple(a, b);
-              Mul<u64>(a, b)
+              let (a$3$: u64, b$3$: u64) = Tuple(a$2$, b$2$);
+              Mul<u64>(a$3$, b$3$)
             }, Mul<u64>(2, {
-              let (a: u64, b: u64) = Tuple(a, b);
-              Add<u64>(Mul<u64>(a, b), 2)
+              let (a$4$: u64, b$4$: u64) = Tuple(a$2$, b$2$);
+              Add<u64>(Mul<u64>(a$4$, b$4$), 2)
             }))
           }, Mul<u64>(3, {
-            let (a: u64, b: u64) = Tuple(a, b);
-            Add<u64>(Mul<u64>(a, b), 3)
+            let (a$5$: u64, b$5$: u64) = Tuple(a, b);
+            Add<u64>(Mul<u64>(a$5$, b$5$), 3)
           })), Mul<u64>(5, {
-            let (a: u64, b: u64) = Tuple(a, b);
-            Add<u64>(Mul<u64>(a, b), 4)
+            let (a$6$: u64, b$6$: u64) = Tuple(a, b);
+            Add<u64>(Mul<u64>(a$6$, b$6$), 4)
           }))
         }, Mul<u64>(9, {
           let (a: u64, b: u64) = Tuple(a, b);

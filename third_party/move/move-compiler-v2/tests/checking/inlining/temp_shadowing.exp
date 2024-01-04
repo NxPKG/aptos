@@ -9,17 +9,17 @@ module 0x42::Test {
               sum: u64 = Add<u64>({
                 let (a: u64, b: u64) = Tuple(a, b);
                 {
-                  let sum: u64 = 0;
+                  let sum$0$: u64 = 0;
                   loop {
                     if Lt<u64>(a, b) {
                       a: u64 = Add<u64>(a, 1);
-                      sum: u64 = Add<u64>(sum, a);
+                      sum$0$: u64 = Add<u64>(sum$0$, a);
                       Tuple()
                     } else {
                       break
                     }
                   };
-                  sum
+                  sum$0$
                 }
               }, sum);
               Tuple()
@@ -32,17 +32,11 @@ module 0x42::Test {
     }
     public fun test_shadowing() {
         {
-          let a: u64 = 1;
-          {
-            let b: u64 = 4;
-            {
-              let z: u64 = Test::other(a, b);
-              if Eq<u64>(z, 10) {
-                Tuple()
-              } else {
-                Abort(z)
-              }
-            }
+          let z: u64 = Test::other(1, 4);
+          if Eq<u64>(z, 10) {
+            Tuple()
+          } else {
+            Abort(z)
           }
         }
     }

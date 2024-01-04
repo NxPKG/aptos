@@ -16,16 +16,14 @@ fun m::g() {
      var $t3: &mut u64
      var $t4: &mut u64
      var $t5: &u64
-     var $t6: &u64
   0: $t1 := 22
   1: $t0 := infer($t1)
   2: $t3 := borrow_local($t0)
   3: $t2 := infer($t3)
   4: $t4 := m::f($t2)
   5: $t2 := infer($t4)
-  6: $t6 := borrow_local($t0)
-  7: $t5 := infer($t6)
-  8: return ()
+  6: $t5 := borrow_local($t0)
+  7: return ()
 }
 
 ============ after LiveVarAnalysisProcessor: ================
@@ -48,7 +46,6 @@ fun m::g() {
      var $t3: &mut u64
      var $t4: &mut u64
      var $t5: &u64
-     var $t6: &u64
      # live vars:
   0: $t1 := 22
      # live vars: $t1
@@ -62,11 +59,9 @@ fun m::g() {
      # live vars: $t0, $t4
   5: $t2 := move($t4)
      # live vars: $t0
-  6: $t6 := borrow_local($t0)
-     # live vars: $t6
-  7: $t5 := move($t6)
+  6: $t5 := borrow_local($t0)
      # live vars:
-  8: return ()
+  7: return ()
 }
 
 ============ after MemorySafetyProcessor: ================
@@ -99,7 +94,6 @@ fun m::g() {
      var $t3: &mut u64
      var $t4: &mut u64
      var $t5: &u64
-     var $t6: &u64
      # live vars:
      # graph: {}
      # local_to_label: {}
@@ -148,21 +142,14 @@ fun m::g() {
      # global_to_label: {}
      # moved: {$t3,$t4}
      #
-  6: $t6 := borrow_local($t0)
-     # live vars: $t6
-     # graph: {L512=local($t0)[borrow(false) -> L1537],L1537=local($t6)[]}
-     # local_to_label: {$t0=L512,$t6=L1537}
-     # global_to_label: {}
-     # moved: {$t3,$t4}
-     #
-  7: $t5 := move($t6)
+  6: $t5 := borrow_local($t0)
      # live vars:
      # graph: {}
      # local_to_label: {}
      # global_to_label: {}
-     # moved: {$t3,$t4,$t6}
+     # moved: {$t3,$t4}
      #
-  8: return ()
+  7: return ()
 }
 
 ============ after ExplicitDrop: ================
@@ -183,7 +170,6 @@ fun m::g() {
      var $t3: &mut u64
      var $t4: &mut u64
      var $t5: &u64
-     var $t6: &u64
   0: $t1 := 22
   1: $t0 := copy($t1)
   2: $t3 := borrow_local($t0)
@@ -191,8 +177,7 @@ fun m::g() {
   4: $t4 := m::f($t2)
   5: $t2 := move($t4)
   6: destroy($t2)
-  7: $t6 := borrow_local($t0)
-  8: $t5 := move($t6)
-  9: destroy($t5)
- 10: return ()
+  7: $t5 := borrow_local($t0)
+  8: destroy($t5)
+  9: return ()
 }

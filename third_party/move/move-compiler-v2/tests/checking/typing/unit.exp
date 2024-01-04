@@ -1,11 +1,8 @@
 // ---- Model Dump
 module 0x8675309::M {
     private fun foo() {
-        {
-          let () = Tuple();
-          Tuple();
-          Tuple()
-        }
+        Tuple();
+        Tuple()
     }
     spec fun $foo();
 } // end 0x8675309::M

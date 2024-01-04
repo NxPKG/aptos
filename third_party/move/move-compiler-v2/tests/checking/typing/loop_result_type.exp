@@ -16,11 +16,8 @@ module 0x2::M {
     }
     private fun t1(): u64 {
         loop {
-          {
-            let x: u64 = 0;
-            x;
-            Tuple()
-          }
+          0;
+          Tuple()
         }
     }
     private fun t2() {
@@ -44,11 +41,7 @@ module 0x2::M {
           };
           {
             let () = loop {
-              if false {
-                break
-              } else {
-                Tuple()
-              }
+              Tuple()
             };
             Tuple()
           }

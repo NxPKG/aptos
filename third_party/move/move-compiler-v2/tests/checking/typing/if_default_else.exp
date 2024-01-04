@@ -6,25 +6,7 @@ module 0x8675309::M {
         } else {
           Tuple()
         };
-        {
-          let () = if cond {
-            Tuple()
-          } else {
-            Tuple()
-          };
-          {
-            let () = if cond {
-              {
-                let x: u64 = 0;
-                x;
-                Tuple()
-              }
-            } else {
-              Tuple()
-            };
-            Tuple()
-          }
-        }
+        Tuple()
     }
     spec fun $t0(cond: bool);
 } // end 0x8675309::M

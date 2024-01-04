@@ -4,22 +4,14 @@ module 0x8675309::M {
         dummy_field: bool,
     }
     private fun t0() {
-        if true {
-          return Tuple()
-        } else {
-          return Tuple()
-        }
+        return Tuple()
     }
     private fun t1(): u64 {
         return 0
     }
     private fun t2(): (u64, bool, M::R) {
         loop {
-          if true {
-            return Tuple(0, false, pack M::R(false))
-          } else {
-            break
-          }
+          return Tuple(0, false, pack M::R(false))
         };
         Abort(0)
     }

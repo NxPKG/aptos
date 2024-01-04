@@ -7,17 +7,14 @@ module 0x8675309::M {
         acquires M::R(*)
      {
         {
-          let _ = exists<M::R>(0x0);
+          let () = MoveTo<M::R>(a, pack M::R(false));
           {
-            let () = MoveTo<M::R>(a, pack M::R(false));
+            let _ = BorrowGlobal(Immutable)<M::R>(0x0);
             {
-              let _ = BorrowGlobal(Immutable)<M::R>(0x0);
+              let _ = BorrowGlobal(Mutable)<M::R>(0x0);
               {
-                let _ = BorrowGlobal(Mutable)<M::R>(0x0);
-                {
-                  let M::R{ dummy_field: _ } = MoveFrom<M::R>(0x0);
-                  Tuple()
-                }
+                let M::R{ dummy_field: _ } = MoveFrom<M::R>(0x0);
+                Tuple()
               }
             }
           }
@@ -27,17 +24,14 @@ module 0x8675309::M {
         acquires M::R(*)
      {
         {
-          let _ = exists<M::R>(0x0);
+          let () = MoveTo<M::R>(a, pack M::R(false));
           {
-            let () = MoveTo<M::R>(a, pack M::R(false));
+            let _ = BorrowGlobal(Immutable)<M::R>(0x0);
             {
-              let _ = BorrowGlobal(Immutable)<M::R>(0x0);
+              let _ = BorrowGlobal(Mutable)<M::R>(0x0);
               {
-                let _ = BorrowGlobal(Mutable)<M::R>(0x0);
-                {
-                  let M::R{ dummy_field: _ } = MoveFrom<M::R>(0x0);
-                  Tuple()
-                }
+                let M::R{ dummy_field: _ } = MoveFrom<M::R>(0x0);
+                Tuple()
               }
             }
           }
