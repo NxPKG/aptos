@@ -6,11 +6,12 @@
 /// Simplify the AST before conversion to bytecode
 use crate::options::Options;
 use codespan_reporting::diagnostic::Severity;
+use move_binary_format::file_format::Ability;
 use move_model::{
     ast::{Exp, ExpData, Operation, Pattern, TempIndex, Value},
     constant_folder::ConstantFolder,
     exp_rewriter::ExpRewriterFunctions,
-    model::{GlobalEnv, NodeId, Parameter},
+    model::{GlobalEnv, NodeId, Parameter, TypeParameter},
     symbol::Symbol,
     ty::{ReferenceKind, Type},
 };
@@ -29,7 +30,9 @@ pub fn run_simplifier(env: &mut GlobalEnv, eliminate_code: bool) {
                 let value = func.get_mut_def().take();
                 if let Some(def) = value {
                     let params = &func.get_parameters();
-                    let rewritten = rewriter.rewrite_function_body(params, def.clone());
+                    let type_params = &func.get_type_parameters();
+                    let rewritten =
+                        rewriter.rewrite_function_body(params, type_params, def.clone());
 
                     *func.get_mut_def() = Some(rewritten);
                 }
@@ -251,6 +254,9 @@ struct SimplifierRewriter<'env> {
     // Parameters to currently processed function
     cached_params: Vec<Parameter>,
 
+    // Type Parameters to currently processed function
+    cached_type_params: Vec<TypeParameter>,
+
     // Tracks which definition (`Let` statement `NodeId`) is visible during visit to find modified
     // local vars.  A use of a symbol which is missing must be a `Parameter`.  This is used only
     // to determine if a symbol is in `unsafe_variables`.
@@ -292,6 +298,7 @@ impl<'env> SimplifierRewriter<'env> {
             constant_folder,
             eliminate_code,
             cached_params: Vec::new(),
+            cached_type_params: Vec::new(),
             visiting_binding: ScopedMap::new(),
             unsafe_variables: BTreeSet::new(),
             remapped_symbol: ScopedMap::new(),
@@ -300,8 +307,14 @@ impl<'env> SimplifierRewriter<'env> {
     }
 
     /// Process a function.
-    pub fn rewrite_function_body(&mut self, params: &[Parameter], exp: Exp) -> Exp {
+    pub fn rewrite_function_body(
+        &mut self,
+        params: &[Parameter],
+        type_params: &[TypeParameter],
+        exp: Exp,
+    ) -> Exp {
         self.cached_params = params.to_vec();
+        self.cached_type_params = type_params.to_vec();
         self.unsafe_variables = find_possibly_modified_vars(self.env, params, exp.as_ref());
         self.visiting_binding.clear();
         self.values.clear();
@@ -686,7 +699,9 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
         }
         let bound_vars = pat.vars();
 
-        // (2) if all pattern vars are unused in body and binding is side-effect free, again return body.
+        // (2) If all pattern vars are unused in body and binding is side-effect free, again return
+        // body.  But to avoid introducing a drop of a struct value that might not have "drop",
+        // also check that opt_binding type has drop.
         let free_vars = body.free_vars();
         let unused_bound_vars: BTreeSet<_> = bound_vars
             .iter()
@@ -706,7 +721,22 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
             })
             .cloned()
             .collect();
-        let can_eliminate_bindings = bound_vars.len() == unused_bound_vars.len()
+        let binding_can_be_dropped = pat.has_no_struct()
+            || if let Some(binding) = opt_binding {
+                let node_id = binding.node_id();
+                let opt_type = self.env.get_node_type_opt(node_id);
+                if let Some(ty) = opt_type {
+                    let ability_set = self.env.type_abilities(&ty, &self.cached_type_params);
+                    ability_set.has_ability(Ability::Drop)
+                } else {
+                    // We're missing type info, be conservative
+                    false
+                }
+            } else {
+                true
+            };
+        let can_eliminate_bindings = binding_can_be_dropped
+            && bound_vars.len() == unused_bound_vars.len()
             && if let Some(binding) = opt_binding {
                 binding.is_side_effect_free()
             } else {
@@ -717,7 +747,6 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
         }
 
         // (3) If some pattern vars are unused in the body, turn them into wildcards.
-        //     Only if `self.eliminate_code` is set.
         let new_pat = if !unused_bound_vars.is_empty() {
             Some(pat.clone().remove_vars(&unused_bound_vars))
         } else {

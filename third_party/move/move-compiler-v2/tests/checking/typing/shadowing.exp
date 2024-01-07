@@ -31,8 +31,11 @@ module 0x8675309::M {
     }
     private fun t2() {
         loop {
-          false;
-          break
+          {
+            let M::S{ f: _, b: _ } = pack M::S(0, false);
+            false;
+            break
+          }
         };
         0;
         Tuple()
