@@ -581,14 +581,13 @@ module aptos_framework::delegation_pool {
     /// To mitigate this, some of the added stake is extracted and fed back into the pool as placeholder
     /// for the rewards the remaining stake would have earned if active:
     /// extracted-fee = (amount - extracted-fee) * reward-rate% * (100% - operator-commission%)
-    public fun get_add_stake_fee(pool_address: address, amount: u64): u64 acquires DelegationPool {
+    public fun get_add_stake_fee(pool_address: address, amount: u64): u64 acquires DelegationPool, NextCommissionPercentage {
         if (stake::is_current_epoch_validator(pool_address)) {
             let (rewards_rate, rewards_rate_denominator) = staking_config::get_reward_rate(&staking_config::get());
             if (rewards_rate_denominator > 0) {
                 assert_delegation_pool_exists(pool_address);
-                let pool = borrow_global<DelegationPool>(pool_address);
 
-                rewards_rate = rewards_rate * (MAX_FEE - pool.operator_commission_percentage);
+                rewards_rate = rewards_rate * (MAX_FEE - operator_commission_percentage(pool_address));
                 rewards_rate_denominator = rewards_rate_denominator * MAX_FEE;
                 ((((amount as u128) * (rewards_rate as u128)) / ((rewards_rate as u128) + (rewards_rate_denominator as u128))) as u64)
             } else { 0 }
