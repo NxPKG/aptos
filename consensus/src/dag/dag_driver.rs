@@ -137,11 +137,11 @@ impl DagDriver {
             dag.add_node(node)?;
 
             let highest_strong_links_round =
-                dag_writer.highest_strong_links_round(&self.epoch_state.verifier);
+                dag.highest_strong_links_round(&self.epoch_state.verifier);
             (
                 highest_strong_links_round,
                 // unwrap is for round 0
-                dag_writer
+                dag
                     .get_strong_links_for_round(
                         highest_strong_links_round,
                         &self.epoch_state.verifier,

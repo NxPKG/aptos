@@ -4,7 +4,9 @@
 use crate::{
     dag::{anchor_election::AnchorElection, storage::CommitEvent},
     liveness::{
-        leader_reputation::{LeaderReputation, MetadataBackend, ReputationHeuristic, VotingPowerRatio},
+        leader_reputation::{
+            LeaderReputation, MetadataBackend, ReputationHeuristic, VotingPowerRatio,
+        },
         proposer_election::ProposerElection,
     },
 };

@@ -91,7 +91,7 @@ impl ResponsiveCheck for OptimisticResponsive {
         &mut self,
         highest_strong_links_round: Round,
         _strong_links: Vec<NodeCertificate>,
-        minimum_delay: Duration,
+        _minimum_delay: Duration,
     ) {
         let new_round = highest_strong_links_round + 1;
         let _ = self.event_sender.send(new_round).await;
@@ -157,7 +157,7 @@ impl ResponsiveCheck for AdaptiveResponsive {
             .expect("Unable to sum voting power from strong links");
 
         let wait_time = self.minimal_wait_time.max(minimum_delay);
-        
+
         // voting power == 3f+1 or pass minimal wait time
         let duration_since_start = duration_since_epoch().saturating_sub(self.start_time);
         if voting_power == self.epoch_state.verifier.total_voting_power()

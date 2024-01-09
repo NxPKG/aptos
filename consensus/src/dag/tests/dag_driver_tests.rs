@@ -1,25 +1,27 @@
 // Copyright © Aptos Foundation
 
-use crate::dag::{
-    adapter::TLedgerInfoProvider,
-    anchor_election::RoundRobinAnchorElection,
-    dag_driver::DagDriver,
-    dag_fetcher::TFetchRequester,
-    dag_network::{RpcWithFallback, TDAGNetworkSender},
-    dag_store::PersistentDagStore,
-    errors::DagDriverError,
-    health::{HealthBackoff, NoChainHealth, NoPipelineBackpressure},
-    order_rule::OrderRule,
-    round_state::{OptimisticResponsive, RoundState},
-    tests::{
-        dag_test::MockStorage,
-        helpers::{new_certified_node, MockPayloadManager, TEST_DAG_WINDOW},
-        order_rule_tests::TestNotifier,
+use crate::{
+    dag::{
+        adapter::TLedgerInfoProvider,
+        anchor_election::RoundRobinAnchorElection,
+        dag_driver::DagDriver,
+        dag_fetcher::TFetchRequester,
+        dag_network::{RpcWithFallback, TDAGNetworkSender},
+        dag_store::PersistentDagStore,
+        errors::DagDriverError,
+        health::{HealthBackoff, NoChainHealth, NoPipelineBackpressure},
+        order_rule::OrderRule,
+        round_state::{OptimisticResponsive, RoundState},
+        tests::{
+            dag_test::MockStorage,
+            helpers::{new_certified_node, MockPayloadManager, TEST_DAG_WINDOW},
+            order_rule_tests::TestNotifier,
+        },
+        types::{CertifiedAck, DAGMessage, TestAck},
+        DAGRpcResult, RpcHandler,
     },
-    types::{CertifiedAck, DAGMessage, TestAck},
-    DAGRpcResult, RpcHandler,
+    test_utils::MockPayloadManager as MockPayloadClient,
 };
-use crate::test_utils::MockPayloadManager as MockPayloadClient;
 use aptos_bounded_executor::BoundedExecutor;
 use aptos_config::config::DagPayloadConfig;
 use aptos_consensus_types::common::{Author, Round};
